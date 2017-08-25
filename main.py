@@ -18,6 +18,7 @@ from keras.layers import LSTM, Dense, TimeDistributed
 from keras.utils import np_utils
 from keras import metrics
 from keras import backend as K
+from keras.models import model_from_json
 
 from labelling import collectinglabel
 from reordering import readinput
@@ -257,7 +258,19 @@ for sub in range(subjects):
 	print (np.shape(Test_Y))	
 	print (np.shape(Test_X))
 	model.fit(Train_X, Train_Y, validation_split=0.05, epochs=1, batch_size=20)
+	# Saving model architecture
+	config = model.get_config()
+	model = Sequential.from_config(config)
+	json_string = model.to_json()
+	model = model_from_json(json_string)
+	with open("model.json", "w") as json_file:
+	    json_file.write(json_string)	
+
 	model.summary()
+
+	# Saving model weights
+	model.save_weights('model.h5')
+
 	predict=model.predict_classes(Test_X)
 ##    predict[predict>= 0.5] = 1
 ##    predict[predict<0.5] = 0
