@@ -7,21 +7,29 @@ def fpr(matrix,n_exp):
     reMatrix=[]
     preList=[]
     reList=[]
+
+    denominator_De_zero = 0.00001
+
     for index in range(n_exp):
         diag=matrix[index,index]
         col=sum(matrix[:,index])
         row=sum(matrix[index])
-
+        # print(diag)
+        # print(col)
         if index ==0:
-            prec=diag/col
-            rec=diag/row
+            prec=diag/(col + denominator_De_zero )
+            # print(prec)
+            rec=diag/(row + denominator_De_zero)
+
+            # print(rec)
         else:
-            prec = prec + diag/col
-            rec = rec + diag/row
+            prec = prec + diag/(col + denominator_De_zero)
+            # print(prec)
+            rec = rec + diag/(row + denominator_De_zero)
+            # print(rec)
 
-
-    precision=prec/n_exp
-    recall=rec/n_exp
+    precision=prec/(n_exp + denominator_De_zero)
+    recall=rec/(n_exp + denominator_De_zero)
     f1=2*precision*recall/(precision+recall)
 
         

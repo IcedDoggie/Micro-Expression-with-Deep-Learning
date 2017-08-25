@@ -25,9 +25,9 @@ from evaluationmatrix import fpr
 
 
 
-workplace='/media/ice/OS/Datasets/CASME 2/'
+workplace='/media/ice/OS/Datasets/CASME2_TIM/'
 dB="CASME2_TIM"
-rootpath = '/media/ice/OS/Datasets/CASME2_TIM/CASME2_TIM/'
+# rootpath = '/media/ice/OS/Datasets/CASME2_TIM/CASME2_TIM/'
 
 
 
@@ -65,9 +65,20 @@ elif dB== "CASME2_large":
 
 
 elif dB== "CASME2_TIM":
-	inputDir='/media/ice/OS/Datasets/CASME2_TIM/CASME2_TIM/' #replace with croppoed for testing
+	# Pandas Way
+	inputDir='/media/ice/OS/Datasets/CASME2_TIM/CASME2_TIM/' 
+	# excel_file = '/media/ice/OS/Datasets/CASME2_label_Ver_2.xls' 
+	# all_data = pd.read_excel(excel_file)
 
-	wb=xlrd.open_workbook('/media/ice/OS/Datasets/CASME2_TIM/CASME2_label_Ver_2.xls');
+	# iD = all_data[['Subject']]
+	# vidName = all_data[['Filename']]
+	# expression = all_data[['Estimated Emotion']]
+	# table = pd.concat([iD, vidName, expression], axis=1)
+	# table = table.as_matrix()
+	# print(table)
+
+	# Numpy Way
+	wb=xlrd.open_workbook('/media/ice/OS/Datasets/CASME2_label_Ver_2.xls')
 	ws=wb.sheet_by_index(0)    
 	colm=ws.col_slice(colx=0,start_rowx=1,end_rowx=None)
 	iD=[str(x.value) for x in colm]
@@ -76,7 +87,8 @@ elif dB== "CASME2_TIM":
 	colm=ws.col_slice(colx=6,start_rowx=1,end_rowx=None)
 	expression=[str(x.value) for x in colm]
 	table=np.transpose(np.array([np.array(iD),np.array(vidName),np.array(expression)],dtype=str))
-	# print(type(table))
+	# print(table)
+	
 	r=50; w=50
 	resizedFlag=1;
 	subjects=26
@@ -95,7 +107,7 @@ elif dB== "CASME2_TIM":
 
 elif dB == "SMIC":
 	inputDir="/srv/oyh/DataBase/SMIC/HS_naming_modified/"
-
+	inputDir="/media/ice/OS/Datasets/SMIC"
 	wb=xlrd.open_workbook('/srv/oyh/DataBase/SMIC_label.xlsx');
 	ws=wb.sheet_by_index(0)    
 	colm=ws.col_slice(colx=1,start_rowx=1,end_rowx=None)
@@ -140,6 +152,7 @@ for sub in sorted([infile for infile in os.listdir(inputDir)]):
 				img=cv2.imread(imgList[0])
 				[row,col,_l]=img.shape
 ##            ##read the label for each input video
+
 			collectinglabel(table, sub[3:], vid, workplace+'Classification/', dB)
 			
 			for var in range(numFrame):
@@ -243,7 +256,7 @@ for sub in range(subjects):
 	print (np.shape(Train_X))
 	print (np.shape(Test_Y))	
 	print (np.shape(Test_X))
-	model.fit(Train_X, Train_Y, validation_split=0.05, epochs=10, batch_size=20)
+	model.fit(Train_X, Train_Y, validation_split=0.05, epochs=1, batch_size=20)
 	model.summary()
 	predict=model.predict_classes(Test_X)
 ##    predict[predict>= 0.5] = 1
