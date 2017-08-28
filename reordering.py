@@ -6,7 +6,7 @@ def readinput (path, dB):
     maxLength=max(len(infile) for infile in inputList)
     minLength=min(len(infile) for infile in inputList)
     
-
+    
     if maxLength == minLength:      
         seqList=[path + infile for infile in inputList]
 

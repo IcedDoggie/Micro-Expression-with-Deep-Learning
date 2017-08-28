@@ -14,15 +14,18 @@ from sklearn.metrics import confusion_matrix
 import scipy.io as sio
 
 from keras.models import Sequential
-from keras.layers import LSTM, Dense, TimeDistributed
+from keras.layers import LSTM, Dense, TimeDistributed, Conv2D, LeakyReLU
 from keras.utils import np_utils
 from keras import metrics
 from keras import backend as K
 from keras.models import model_from_json
+import keras
+
 
 from labelling import collectinglabel
 from reordering import readinput
 from evaluationmatrix import fpr
+from models import LossHistory
 
 
 
@@ -183,14 +186,18 @@ for sub in sorted([infile for infile in os.listdir(inputDir)]):
 
 ##### Setting up the LSTM model ########
 data_dim=r*w # 2500
-print(data_dim)
-timesteps=10
+# print(data_dim)
+timesteps=23
 
 # LSTM1 = LSTM(2500, return_sequences=True, input_shape=(timesteps, data_dim))
 
 model=Sequential()
 # model.add(TimeDistributed(Dense(data_dim), input_shape=(timesteps, data_dim)))
-model.add(LSTM(2500, return_sequences=True, input_shape=(timesteps, data_dim)))
+model.add(Conv2D(2500, kernel_size=(3, 3), input_shape=(timesteps, data_dim)))
+model.add(LeakyReLU())
+model.add(Conv2D(2000, kernel_size=(3, 3)))
+model.add(LeakyReLU())
+model.add(LSTM(2500, return_sequences=True))
 model.add(LSTM(500,return_sequences=False))
 ##model.add(LSTM(500,return_sequences=True))
 ##model.add(LSTM(50,return_sequences=False))
@@ -205,8 +212,7 @@ for sub in range(subjects):
 	numVid=VidPerSubject[sub]
 	labelperSub.append(label[counter:counter+numVid])
 	counter = counter + numVid
-##print(np.shape(labelperSub[1]))
-##print(labelperSub[1])
+
 
 ######## Seperating the input files into LOSO CV ########
 tot_mat=np.zeros((n_exp,n_exp))
@@ -218,7 +224,7 @@ for sub in range(subjects):
 	Test_X=np.array(Test_X)
 	Test_Y=labelperSub[sub]
 	Test_Yy=np_utils.to_categorical(Test_Y,5)
-	print(Test_Y)
+	# print(Test_Y)
 ##    print(np.shape(Test_Y))
 	if sub==0:
 		for i in range(1,subjects):
@@ -238,17 +244,9 @@ for sub in range(subjects):
 				Train_X.append(SubperdB[i])
 				Train_Y.append(labelperSub[i])
 				
-	# print(Train_X)
-	# Train_X=np.hstack(Train_X)
-	# print(Train_X.shape)
+
 	Train_X=np.vstack(Train_X) # changed to hstack from vstack
-	# print(Train_X.shape)
-	# Train_X = Train_X.shape[1:]
-	# print(Train_X.shape)
-	# Train_X = np.expand_dims(Train_X, axis=2)
-	# Train_X = np.reshape(Train_X, Train_X.shape + (1, 1,) )
-	# Train_X = np.reshape( Train_X, Train_X.shape )
-	# Train_X = np.reshape(2500, 16077)	
+
 	print(Train_X.shape)
 
 	Train_Y=np.hstack(Train_Y)
@@ -257,7 +255,20 @@ for sub in range(subjects):
 	print (np.shape(Train_X))
 	print (np.shape(Test_Y))	
 	print (np.shape(Test_X))
-	model.fit(Train_X, Train_Y, validation_split=0.05, epochs=1, batch_size=20)
+
+	# Record Loss
+	# loss_history = keras.callbacks.TensorBoard(log_dir="./tensorboard/", histogram_freq=1,
+	#  write_graph=True)
+
+	# history_callback = model.fit(Train_X, Train_Y, validation_split=0.05, epochs=10, batch_size=20, callbacks=[loss_history])
+	history_callback = model.fit(Train_X, Train_Y, validation_split=0.05, epochs=10, batch_size=20)
+
+	# loss_history = history_callback.history["loss"]
+	
+
+
+
+
 	# Saving model architecture
 	config = model.get_config()
 	model = Sequential.from_config(config)

@@ -27,8 +27,9 @@ def collectinglabel(Table, sub, videoName, workplace, db):
                     result=4
                     break
         
-         
+
     if result != -1 :
+
         with open(workplace + db+'_label.txt','a') as f:
             f.write(str(result) + '\n')
             f.close()
