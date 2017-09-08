@@ -12,20 +12,23 @@ from sklearn.svm import SVC
 from collections import Counter
 from sklearn.metrics import confusion_matrix
 import scipy.io as sio
+import matplotlib.pyplot as plt
 
 from keras.models import Sequential
-from keras.layers import LSTM, Dense, TimeDistributed, Conv2D, LeakyReLU
+from keras.layers import LSTM, Dense, TimeDistributed, Conv2D, LeakyReLU, Reshape, Conv1D
 from keras.utils import np_utils
 from keras import metrics
 from keras import backend as K
 from keras.models import model_from_json
 import keras
+from keras.preprocessing.image import ImageDataGenerator  
 
 
 from labelling import collectinglabel
 from reordering import readinput
 from evaluationmatrix import fpr
 from models import LossHistory
+from utilities import get_subfolders_num
 
 
 
@@ -98,7 +101,8 @@ elif dB== "CASME2_TIM":
 	subjects=26
 	samples=246
 	n_exp=5
-	VidPerSubject = [9,13,7,5,19,5,9,3,13,13,10,12,8,4,3,4,34,3,15,11,2,2,12,7,7,16]
+	VidPerSubject = get_subfolders_num(inputDir)
+	# VidPerSubject = [9,13,7,5,19,5,9,3,13,13,10,12,8,4,3,4,34,3,15,11,2,2,12,7,7,16]
 	IgnoredSamples=['sub09/EP13_02/','sub09/EP02_02f/','sub10/EP13_01/','sub17/EP15_01/',
 					'sub17/EP15_03/','sub19/EP19_04/','sub24/EP10_03/','sub24/EP07_01/',
 					'sub24/EP07_04f/','sub24/EP02_07/','sub26/EP15_01/']
@@ -143,10 +147,9 @@ for sub in sorted([infile for infile in os.listdir(inputDir)]):
 			path=inputDir + sub + '/'+ vid + '/'
 			if path in listOfIgnoredSamples:
 				continue
-			# print(dB)
-			# print(path)
+
 			imgList=readinput(path,dB)
-		  
+			
 			numFrame=len(imgList)
 
 			if resizedFlag ==1:
@@ -164,54 +167,62 @@ for sub in sorted([infile for infile in os.listdir(inputDir)]):
 				[_,_,dim]=img.shape
 				
 				if dim ==3:
-
+					# pass
 					img=cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
 
 				if resizedFlag ==1:
-					#in resize function, [col,row]
+					# in resize function, [col,row]
 					img=cv2.resize(img,(col,row))
-					
+
 		
 				if var==0:
 					FrameperVid=img.flatten()
 				else:
 					FrameperVid=np.vstack((FrameperVid,img.flatten()))
 				
-			
 			VidperSub.append(FrameperVid)       
 
 		SubperdB.append(VidperSub)
 
 
-
 ##### Setting up the LSTM model ########
+## Temporal input
 data_dim=r*w # 2500
-# print(data_dim)
-timesteps=23
+timesteps=10
 
-# LSTM1 = LSTM(2500, return_sequences=True, input_shape=(timesteps, data_dim))
+## Spatial input
+image_dim = 280
+ndim = 3
+batch = 16
 
 model=Sequential()
-# model.add(TimeDistributed(Dense(data_dim), input_shape=(timesteps, data_dim)))
-model.add(Conv2D(2500, kernel_size=(3, 3), input_shape=(timesteps, data_dim)))
-model.add(LeakyReLU())
-model.add(Conv2D(2000, kernel_size=(3, 3)))
-model.add(LeakyReLU())
-model.add(LSTM(2500, return_sequences=True))
+model.add(LSTM(2000, return_sequences=True, input_shape=(timesteps, data_dim)))
 model.add(LSTM(500,return_sequences=False))
-##model.add(LSTM(500,return_sequences=True))
-##model.add(LSTM(50,return_sequences=False))
 model.add(Dense(50,activation='sigmoid'))
 model.add(Dense(5,activation='sigmoid'))
 model.compile(loss='categorical_crossentropy',optimizer='Adam',metrics=[metrics.categorical_accuracy])
-#### generate the label based on subjects #########
-label=np.loadtxt(workplace+'Classification/'+ dB +'_label.txt')
+
+################ CNN for spatial features ######################
+# model_cnn = Sequential()
+# model_cnn.add(Conv2D(256, kernel_size = (3, 3), input_shape=((50, 50), 1), data_format=None))
+# model_cnn.compile(loss='categorical_crossentropy', optimizer='Adam', metrics=[metrics.categorical_accuracy])
+################################################################
+
+
+######## generate the label based on subjects #########
+label = np.loadtxt(workplace+'Classification/'+ dB +'_label.txt')
 labelperSub=[]
 counter = 0
 for sub in range(subjects):
 	numVid=VidPerSubject[sub]
 	labelperSub.append(label[counter:counter+numVid])
 	counter = counter + numVid
+######### Image Data Augmentation ############
+# datagen = ImageDataGenerator(
+	# horizontal_flip = True,
+	# rotation_range = 10,
+	# rescale = 1.1,
+	# )
 
 
 ######## Seperating the input files into LOSO CV ########
@@ -223,12 +234,13 @@ for sub in range(subjects):
 	Test_X=SubperdB[sub]
 	Test_X=np.array(Test_X)
 	Test_Y=labelperSub[sub]
-	Test_Yy=np_utils.to_categorical(Test_Y,5)
-	# print(Test_Y)
-##    print(np.shape(Test_Y))
+	Test_Yy=np_utils.to_categorical(Test_Y, 5)
+
+	##### Leave One Subject Out #######
 	if sub==0:
 		for i in range(1,subjects):
 			Train_X.append(SubperdB[i])
+			# print(len(Train_X))
 			Train_Y.append(labelperSub[i])
 	   
 	elif sub==subjects-1:
@@ -244,30 +256,51 @@ for sub in range(subjects):
 				Train_X.append(SubperdB[i])
 				Train_Y.append(labelperSub[i])
 				
-
-	Train_X=np.vstack(Train_X) # changed to hstack from vstack
-
-	print(Train_X.shape)
-
+	Train_X=np.vstack(Train_X) 
 	Train_Y=np.hstack(Train_Y)
 	Train_Y=np_utils.to_categorical(Train_Y,5)
+
 	print (np.shape(Train_Y))
 	print (np.shape(Train_X))
 	print (np.shape(Test_Y))	
 	print (np.shape(Test_X))
 
-	# Record Loss
-	# loss_history = keras.callbacks.TensorBoard(log_dir="./tensorboard/", histogram_freq=1,
-	#  write_graph=True)
+	Train_X_cnn = Train_X[0]
+	Train_X_cnn = Train_X_cnn[0]
+	print (Train_X_cnn.shape)
+	Train_X_cnn = Train_X_cnn.reshape(1, r, w)
+	print (Train_X_cnn.shape)
+	print (Train_X_cnn.shape[1:])
+	Train_X_cnn = Train_X.reshape(2370, 50, 50, 1)
+	print (Train_X_cnn.shape)
 
-	# history_callback = model.fit(Train_X, Train_Y, validation_split=0.05, epochs=10, batch_size=20, callbacks=[loss_history])
-	history_callback = model.fit(Train_X, Train_Y, validation_split=0.05, epochs=10, batch_size=20)
+	# datagen.fit(Train_X_cnn)
+	# # flow
+	# for X_batch in datagen.flow(Train_X_cnn, batch_size=10, save_to_dir='/media/ice/OS/Datasets/CASME2_TIM/augment', save_prefix='aug', save_format='jpg'):
+	# 	print(X_batch.shape)
+	# 	for i in range(0, 9):
 
-	# loss_history = history_callback.history["loss"]
-	
+	# 		plt.subplot(330 + 1 + i)
+	# 		plt.imshow(X_batch[i].reshape(50, 50), cmap=plt.get_cmap('gray'))
+	# 	plt.show()
 
 
+	# flow_from_directory
 
+	# train_generator = datagen.flow_from_directory(
+	# 	'/media/ice/OS/Datasets/CASME2_TIM/CASME2_TIM/', 
+	# 	target_size = (280, 280),
+	# 	class_mode = 'binary',
+	# 	save_to_dir = '/media/ice/OS/Datasets/CASME2_TIM/augment/',
+	# 	save_prefix = 'augmented',
+	# 	save_format = 'jpeg',
+	# 	batch_size = 23,
+	# 	# seed = ,
+	# 	)
+
+	# model.fit_generator(train_generator, steps_per_epoch = 23, epochs=1)	
+
+	history_callback = model.fit(Train_X, Train_Y, validation_split=0.05, epochs=1)
 
 	# Saving model architecture
 	config = model.get_config()
@@ -275,23 +308,21 @@ for sub in range(subjects):
 	json_string = model.to_json()
 	model = model_from_json(json_string)
 	with open("model.json", "w") as json_file:
-	    json_file.write(json_string)	
-
+		json_file.write(json_string)	
+		
 	model.summary()
 
 	# Saving model weights
 	model.save_weights('model.h5')
 
 	predict=model.predict_classes(Test_X)
-##    predict[predict>= 0.5] = 1
-##    predict[predict<0.5] = 0
 	print (predict)
 	print (Test_Y)
 
-	#compute the ConfusionMat
+	# compute the ConfusionMat
 	ct=confusion_matrix(Test_Y,predict)
    
-	#check the order of the CT
+	# check the order of the CT
 	order=np.unique(np.concatenate((predict,Test_Y)))
 	
 	#create an array to hold the CT for each CV
