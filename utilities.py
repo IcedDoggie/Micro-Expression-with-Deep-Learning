@@ -79,7 +79,7 @@ def Read_Input_Images(inputDir, listOfIgnoredSamples, dB, resizedFlag, table, wo
 			SubperdB.append(VidperSub)	
 	return SubperdB
 
-def Label_Matching():
+def label_matching(workplace, dB, subjects, VidPerSubject):
 	label=np.loadtxt(workplace+'Classification/'+ dB +'_label.txt')
 	labelperSub=[]
 	counter = 0
@@ -88,6 +88,7 @@ def Label_Matching():
 		labelperSub.append(label[counter:counter+numVid])
 		counter = counter + numVid
 
+	return labelperSub
 
 def get_subfolders_num(path):
 	files = folders = 0
@@ -98,9 +99,51 @@ def get_subfolders_num(path):
 		folders += len(dirnames) 
 		if len(dirnames) > 0:
 			folders_array = np.append(folders_array, len(dirnames))
-
-	folders -= 26 # hardcoded, because it includes the root path
+	# print(type(folders_array[0]))
+	# folders -= 26 # hardcoded, because it includes the root path
+	folders_array = np.delete(folders_array, [0]) # remove first element as it includes number of folders from root path
 	folders_array = folders_array.tolist()
-	print(folders_array)
+	folders_array = [int(i) for i in folders_array]
 	print( "{:,} files, {:,} folders".format(files, folders) )
 	return folders_array
+
+
+def data_loader_with_LOSO(subject, SubjectPerDatabase, y_labels, subjects):
+	Train_X = []
+	Train_Y = []
+	Test_X = np.array(SubjectPerDatabase[subject])
+	Test_Y = np_utils.to_categorical(y_labels[subject], 5)
+
+	########### Leave-One-Subject-Out ###############
+	if subject==0:
+		for i in range(1,subjects):
+			Train_X.append(SubjectPerDatabase[i])
+			Train_Y.append(y_labels[i])
+	   
+	elif subject==subjects-1:
+		for i in range(subjects-1):
+			Train_X.append(SubjectPerDatabase[i])
+			Train_Y.append(y_labels[i])
+	   
+	else:
+		for i in range(subjects):
+			if subject == i:
+				continue
+			else:
+				Train_X.append(SubjectPerDatabase[i])
+				Train_Y.append(y_labels[i])	
+
+	##################################################
+
+	############ Conversion to numpy and stacking ##############
+	Train_X=np.vstack(Train_X) 
+	Train_Y=np.hstack(Train_Y)
+	Train_Y=np_utils.to_categorical(Train_Y,5)
+	#############################################################
+
+	print (np.shape(Train_Y))
+	print (np.shape(Train_X))
+	print (np.shape(Test_Y))	
+	print (np.shape(Test_X))	
+
+	return Train_X, Train_Y, Test_X, Test_Y
