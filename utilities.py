@@ -14,7 +14,7 @@ from sklearn.svm import SVC
 from collections import Counter
 from sklearn.metrics import confusion_matrix
 import scipy.io as sio
-from imgaug import augmenters as iaa
+
 
 from keras.models import Sequential
 from keras.layers import LSTM, Dense, TimeDistributed
@@ -54,7 +54,7 @@ def Read_Input_Images(inputDir, listOfIgnoredSamples, dB, resizedFlag, table, wo
 	##            ##read the label for each input video
 
 				collectinglabel(table, sub[3:], vid, workplace+'Classification/', dB)
-				
+
 				for var in range(numFrame):
 					img=cv2.imread(imgList[var])
 					[_,_,dim]=img.shape
@@ -140,10 +140,11 @@ def data_loader_with_LOSO(subject, SubjectPerDatabase, y_labels, subjects):
 	Train_Y=np.hstack(Train_Y)
 	Train_Y=np_utils.to_categorical(Train_Y,5)
 	#############################################################
-
-	print (np.shape(Train_Y))
-	print (np.shape(Train_X))
-	print (np.shape(Test_Y))	
-	print (np.shape(Test_X))	
+	# print ("Train_X_shape: " + str(np.shape(Train_X)))
+	# print ("Train_Y_shape: " + str(np.shape(Train_Y)))
+	# print ("Test_X_shape: " + str(np.shape(Test_X)))	
+	# print ("Test_Y_shape: " + str(np.shape(Test_Y)))	
 
 	return Train_X, Train_Y, Test_X, Test_Y
+
+	
