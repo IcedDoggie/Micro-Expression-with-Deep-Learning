@@ -48,14 +48,7 @@ table=np.transpose(np.array([np.array(iD),np.array(vidName),np.array(expression)
 # print(table)
 ###############################################################
 
-############## Variables ###################
-r=50; w=50
-resizedFlag=1
-subjects=26
-samples=246
-n_exp=5
-VidPerSubject = get_subfolders_num(inputDir)
-############################################
+
 
 ###################### Samples to-be ignored ##########################
 # ignored due to:
@@ -71,7 +64,24 @@ for s in range(len(IgnoredSamples)):
 	else:
 		listOfIgnoredSamples.append(inputDir+IgnoredSamples[s])
 
+IgnoredSamples_index = np.empty([0])
+for item in IgnoredSamples:
+	item = item.split('sub', 1)[1]
+	item = int(item.split('/', 1)[0]) - 1 # Get index of samples to be ignored in terms of subject id
+	IgnoredSamples_index = np.append(IgnoredSamples_index, item)
+# print(listOfIgnoredSamples)
 #######################################################################
+
+############## Variables ###################
+r=50; w=50
+resizedFlag=1
+subjects=26
+samples=246
+n_exp=5
+VidPerSubject = get_subfolders_num(inputDir, IgnoredSamples_index)
+timesteps_TIM = 10
+data_dim = r * w
+############################################
 
 ################## Clearing labels.txt ################
 os.remove(workplace + "Classification/CASME2_TIM_label.txt")
@@ -96,8 +106,12 @@ model.add(Dropout(0.5))
 model.add(Dense(5, activation='softmax'))
 model.compile(loss='categorical_crossentropy',optimizer='Adam',metrics=[metrics.categorical_accuracy])
 
-
-
+temporal_model = Sequential()
+temporal_model.add(LSTM(2500, return_sequences=True, input_shape=(timesteps_TIM, data_dim)))
+temporal_model.add(LSTM(500, return_sequences=False))
+temporal_model.add(Dense(50, activation='sigmoid'))
+temporal_model.add(Dense(5, activation='sigmoid'))
+temporal_model.compile(loss='categorical_crossentropy', optimizer='Adam', metrics=[metrics.categorical_accuracy])
 #########################################
 
 ########### Training Process ############
@@ -128,11 +142,5 @@ for sub in range(subjects):
 	print ("Test_X_shape: " + str(np.shape(Test_X)))	
 	print ("Test_Y_shape: " + str(np.shape(Test_Y)))	
 	
-		
-
-	model.fit(Train_X, Train_Y, batch_size=10, epochs=10, validation_split=0.05 )
-
-		# print(images_per_seq.shape)
-
-
-
+	output = model.fit(Train_X, Train_Y, batch_size=10, epochs=1, validation_split=0.05 )
+	print(output)

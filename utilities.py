@@ -90,18 +90,31 @@ def label_matching(workplace, dB, subjects, VidPerSubject):
 
 	return labelperSub
 
-def get_subfolders_num(path):
+def get_subfolders_num(path, IgnoredSamples_index):
 	files = folders = 0
 	# print(path)
 	folders_array = np.empty([0])
+	subject_array = np.empty([0])
+
 	for root, dirnames, filenames in os.walk(path):
 		files += len(filenames)
-		folders += len(dirnames) 
+		folders += len(dirnames)
+		number_of_ignored_files = 0
+
 		if len(dirnames) > 0:
 			folders_array = np.append(folders_array, len(dirnames))
 	# print(type(folders_array[0]))
 	# folders -= 26 # hardcoded, because it includes the root path
 	folders_array = np.delete(folders_array, [0]) # remove first element as it includes number of folders from root path
+	
+	####### Minus out the ignored samples ############
+	print(folders_array)
+	for item in IgnoredSamples_index:
+		item = int(item)
+		folders_array[item] -= 1
+	print(folders_array)
+	##################################################
+
 	folders_array = folders_array.tolist()
 	folders_array = [int(i) for i in folders_array]
 	print( "{:,} files, {:,} folders".format(files, folders) )
