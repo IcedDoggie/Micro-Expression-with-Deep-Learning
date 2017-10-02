@@ -99,7 +99,7 @@ def get_subfolders_num(path, IgnoredSamples_index):
 	for root, dirnames, filenames in os.walk(path):
 		files += len(filenames)
 		folders += len(dirnames)
-		number_of_ignored_files = 0
+
 
 		if len(dirnames) > 0:
 			folders_array = np.append(folders_array, len(dirnames))
@@ -108,11 +108,11 @@ def get_subfolders_num(path, IgnoredSamples_index):
 	folders_array = np.delete(folders_array, [0]) # remove first element as it includes number of folders from root path
 	
 	####### Minus out the ignored samples ############
-	print(folders_array)
+	# print(folders_array)
 	for item in IgnoredSamples_index:
 		item = int(item)
 		folders_array[item] -= 1
-	print(folders_array)
+	# print(folders_array)
 	##################################################
 
 	folders_array = folders_array.tolist()

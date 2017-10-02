@@ -66,20 +66,27 @@ if dB== "CASME2_TIM":
 	subjects=26
 	samples=246
 	n_exp=5
-	VidPerSubject = get_subfolders_num(inputDir)
-	# print(VidPerSubject)
-	VidPerSubject = [126, 182, 98, 70, 266, 70, 126, 42, 182, 182, 140, 168, 112, 56, 42, 56, 476, 42, 210, 154, 28, 28, 168, 98, 98, 224]
-	# VidPerSubject = [9,13,7,5,19,5,9,3,13,13,10,12,8,4,3,4,34,3,15,11,2,2,12,7,7,16]
-	IgnoredSamples=['sub09/EP13_02/','sub09/EP02_02f/','sub10/EP13_01/','sub17/EP15_01/',
-					'sub17/EP15_03/','sub19/EP19_04/','sub24/EP10_03/','sub24/EP07_01/',
-					'sub24/EP07_04f/','sub24/EP02_07/','sub26/EP15_01/']
-	# IgnoredSamples= []
+	###################### Samples to-be ignored ##########################
+	# ignored due to:
+	# 1) no matching label.
+	# 2) fear, sadness are excluded due to too little data, see CASME2 paper for more
+	IgnoredSamples = ['sub09/EP13_02/','sub09/EP02_02f/','sub10/EP13_01/','sub17/EP15_01/',
+						'sub17/EP15_03/','sub19/EP19_04/','sub24/EP10_03/','sub24/EP07_01/',
+						'sub24/EP07_04f/','sub24/EP02_07/','sub26/EP15_01/']
 	listOfIgnoredSamples=[]
 	for s in range(len(IgnoredSamples)):
 		if s==0:
 			listOfIgnoredSamples=[inputDir+IgnoredSamples[s]]
 		else:
 			listOfIgnoredSamples.append(inputDir+IgnoredSamples[s])
+	### Get index of samples to be ignored in terms of subject id ###
+	IgnoredSamples_index = np.empty([0])
+	for item in IgnoredSamples:
+		item = item.split('sub', 1)[1]
+		item = int(item.split('/', 1)[0]) - 1 
+		IgnoredSamples_index = np.append(IgnoredSamples_index, item)
+	VidPerSubject = get_subfolders_num(inputDir, IgnoredSamples_index)
+	#######################################################################
    
 
 else:
@@ -166,7 +173,8 @@ label = np.loadtxt(workplace+'Classification/'+ dB +'_label.txt')
 labelperSub=[]
 counter = 0
 for sub in range(subjects):
-	numVid=VidPerSubject[sub]
+	numVid=VidPerSubject[sub]	
+
 	labelperSub.append(label[counter:counter+numVid])
 	counter = counter + numVid
 
@@ -225,7 +233,7 @@ for sub in range(subjects):
 	# Train_X_cnn = Train_X.reshape(33180, 50, 50, 1)
 	# print (Train_X_cnn.shape)
 
-	
+	# print(Train_X)
 	history_callback = model.fit(Train_X, Train_Y, validation_split=0.05, epochs=1, batch_size=20)
 
 

@@ -21,6 +21,7 @@ from keras import backend as K
 from keras.models import model_from_json
 from keras.layers import Dense, Dropout, Flatten
 from keras.layers import Conv2D, MaxPooling2D
+from keras.preprocessing.sequence import pad_sequences
 import keras
 
 from labelling import collectinglabel
@@ -63,13 +64,13 @@ for s in range(len(IgnoredSamples)):
 		listOfIgnoredSamples=[inputDir+IgnoredSamples[s]]
 	else:
 		listOfIgnoredSamples.append(inputDir+IgnoredSamples[s])
-
+### Get index of samples to be ignored in terms of subject id ###
 IgnoredSamples_index = np.empty([0])
 for item in IgnoredSamples:
 	item = item.split('sub', 1)[1]
-	item = int(item.split('/', 1)[0]) - 1 # Get index of samples to be ignored in terms of subject id
+	item = int(item.split('/', 1)[0]) - 1 
 	IgnoredSamples_index = np.append(IgnoredSamples_index, item)
-# print(listOfIgnoredSamples)
+
 #######################################################################
 
 ############## Variables ###################
@@ -81,6 +82,7 @@ n_exp=5
 VidPerSubject = get_subfolders_num(inputDir, IgnoredSamples_index)
 timesteps_TIM = 10
 data_dim = r * w
+pad_sequence = 10
 ############################################
 
 ################## Clearing labels.txt ################
@@ -98,18 +100,22 @@ print("Loaded Labels into the tray...")
 ########### Model #######################
 model = Sequential()
 model.add(Conv2D( 32, kernel_size=(1, 1), strides=(1,1), input_shape=(50, 50, 1) ))
-model.add(Conv2D( 64, kernel_size=(1, 1), activation='relu' ))
-model.add(Dropout(0.25))
+model.add(MaxPooling2D(pool_size=3, strides=2))
+model.add(Conv2D( 64, kernel_size=(1, 1), activation='relu'))
+model.add(MaxPooling2D(pool_size=3, strides=2))
+model.add(Conv2D( 64, kernel_size=(1, 1), activation='relu'))
+model.add(MaxPooling2D(pool_size=3, strides=2))
+model.add(Dense( 512, activation='relu'))
+model.add(Dense( 512, activation='relu'))
 model.add(Flatten())
-model.add(Dense(128, activation='relu'))
-model.add(Dropout(0.5))
-model.add(Dense(5, activation='softmax'))
-model.compile(loss='categorical_crossentropy',optimizer='Adam',metrics=[metrics.categorical_accuracy])
+model.add(Dense( 5, activation='softmax'))
+model.compile(loss='mean_absolute_error',optimizer='Adam',metrics=[metrics.categorical_accuracy])
+
 
 temporal_model = Sequential()
-temporal_model.add(LSTM(2500, return_sequences=True, input_shape=(timesteps_TIM, data_dim)))
-temporal_model.add(LSTM(500, return_sequences=False))
-temporal_model.add(Dense(50, activation='sigmoid'))
+temporal_model.add(LSTM(512, return_sequences=True, input_shape=(5, pad_sequence)))
+temporal_model.add(LSTM(512, return_sequences=False))
+temporal_model.add(Dense(128, activation='sigmoid'))
 temporal_model.add(Dense(5, activation='sigmoid'))
 temporal_model.compile(loss='categorical_crossentropy', optimizer='Adam', metrics=[metrics.categorical_accuracy])
 #########################################
@@ -120,7 +126,7 @@ temporal_model.compile(loss='categorical_crossentropy', optimizer='Adam', metric
 # 2) call model (done)
 # 3) saving model architecture
 # 4) Saving Checkpoint
-# 5) make prediction
+# 5) make prediction (done)
 
 for sub in range(subjects):
 	image_label_mapping = np.empty([0])
@@ -128,19 +134,36 @@ for sub in range(subjects):
 	Train_X, Train_Y, Test_X, Test_Y = data_loader_with_LOSO(sub, SubperdB, labelperSub, subjects)
 	
 	# Rearrange Training labels into a vector of images, breaking sequence
-	Train_X = Train_X.reshape(Train_X.shape[0]*10, r, w, 1)
-	Test_X = Test_X.reshape(Test_X.shape[0]* 10, r, w, 1)
+	Train_X_spatial = Train_X.reshape(Train_X.shape[0]*10, r, w, 1)
+	Test_X_spatial = Test_X.reshape(Test_X.shape[0]* 10, r, w, 1)
 
 	# Extend Y labels 10 fold, so that all images have labels
-	Train_Y = np.repeat(Train_Y, 10)
-	Train_Y = Train_Y.reshape(int(Train_Y.shape[0]/5), 5)
-	Test_Y = np.repeat(Test_Y, 10)
-	Test_Y = Test_Y.reshape(int(Test_Y.shape[0]/5), 5)
+	Train_Y_spatial = np.repeat(Train_Y, 10)
+	Train_Y_spatial = Train_Y_spatial.reshape(int(Train_Y_spatial.shape[0]/5), 5)
+	Test_Y_spatial = np.repeat(Test_Y, 10)
+	Test_Y_spatial = Test_Y_spatial.reshape(int(Test_Y_spatial.shape[0]/5), 5)
 
-	print ("Train_X_shape: " + str(np.shape(Train_X)))
-	print ("Train_Y_shape: " + str(np.shape(Train_Y)))
-	print ("Test_X_shape: " + str(np.shape(Test_X)))	
-	print ("Test_Y_shape: " + str(np.shape(Test_Y)))	
+	print ("Train_X_shape: " + str(np.shape(Train_X_spatial)))
+	print ("Train_Y_shape: " + str(np.shape(Train_Y_spatial)))
+	print ("Test_X_shape: " + str(np.shape(Test_X_spatial)))	
+	print ("Test_Y_shape: " + str(np.shape(Test_Y_spatial)))	
 	
-	output = model.fit(Train_X, Train_Y, batch_size=10, epochs=1, validation_split=0.05 )
-	print(output)
+	############ Spatial Encoder ###############
+	output = model.fit(Train_X_spatial, Train_Y_spatial, batch_size=32, epochs=1, validation_split=0.05, shuffle=True )
+	features = model.predict(Train_X_spatial)
+	############################################
+
+
+	# features = model.predict(Train_X)
+	print(features.shape)
+	features = features.reshape(10, int(features.shape[0]/10), features.shape[1])
+	print(features.shape)
+	# features = pad_sequences(features, maxlen=pad_sequence)
+	features = features.reshape(features.shape[1], features.shape[2], features.shape[0])
+	print(features.shape)
+	temporal_model.fit(features, Train_Y, batch_size = 10, epochs=1)
+
+
+	# print(output.values)
+	# output2 = temporal_model.fit(output, batch_size=10, epochs=1, validation_split=0.05)
+	# score, acc = model.evaluate(Test_X, Test_Y, batch_size=10)
