@@ -19,7 +19,10 @@ from keras.layers import LSTM, Dense, TimeDistributed
 from keras.utils import np_utils
 from keras import metrics
 from keras import backend as K
-from keras.models import model_from_json
+from keras.models import model_from_json, Model
+from keras.layers import Input, Dense, Conv2D, MaxPooling2D, UpSampling2D
+
+
 
 from labelling import collectinglabel
 from reordering import readinput
@@ -52,3 +55,7 @@ class LossHistory(keras.callbacks.Callback):
 
     def on_batch_end(self, batch, logs={}):
         self.losses.append(logs.get('loss'))
+
+class AutoEncoder():
+	def __init__():
+

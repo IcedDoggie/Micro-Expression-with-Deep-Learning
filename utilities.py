@@ -27,8 +27,9 @@ from labelling import collectinglabel
 from reordering import readinput
 from evaluationmatrix import fpr
 
-def Read_Input_Images(inputDir, listOfIgnoredSamples, dB, resizedFlag, table, workplace):
-	r=50; w=50	
+def Read_Input_Images(inputDir, listOfIgnoredSamples, dB, resizedFlag, table, workplace, spatial_size):
+	# r=224; w=224
+	r=w=spatial_size	
 	SubperdB=[]
 
 	for sub in sorted([infile for infile in os.listdir(inputDir)]):
@@ -160,4 +161,12 @@ def data_loader_with_LOSO(subject, SubjectPerDatabase, y_labels, subjects):
 
 	return Train_X, Train_Y, Test_X, Test_Y
 
-	
+
+def duplicate_channel(X):
+
+	X = np.repeat(X, 3, axis=3)
+	# np.set_printoptions(threshold=np.nan)
+	# print(X)
+	print(X.shape)
+
+	return X
