@@ -29,7 +29,7 @@ from labelling import collectinglabel
 from reordering import readinput
 from evaluationmatrix import fpr
 from utilities import Read_Input_Images, get_subfolders_num, data_loader_with_LOSO, label_matching, duplicate_channel
-
+from models import VGG_16
 
 ############## Path Preparation ######################
 dB = "CASME2_TIM"
@@ -123,16 +123,18 @@ temporal_model.compile(loss='categorical_crossentropy', optimizer='Adam', metric
 #########################################
 
 ################# Pretrained Model ###################
-vgg_model = Sequential()
-vgg_face_16 = keras.models.load_model('VGG_Face_Deep_16.h5')
-vgg_model.add(vgg_face_16)
-vgg_model.add(Dense(5, activation = 'softmax'))
+# vgg_model = Sequential()
+# vgg_face_16 = keras.models.load_model('VGG_Face_Deep_16.h5')
+vgg_model = VGG_16('VGG_Face_Deep_16.h5')
+# vgg_model.add(vgg_face_16)
+# vgg_model.add(Dense(5, activation = 'softmax'))
 vgg_model.compile(loss='categorical_crossentropy', optimizer='Adam', metrics=[metrics.categorical_accuracy])
 # prediction = Dense(5, activation = 'softmax')(vgg_face_16.output)
 # new_vgg_face_16 = Model(input = vgg_face_16.input, output = prediction)
 
 # new_vgg_face_16.compile(loss='categorical_crossentropy', optimizer='Adam', metrics=[metrics.categorical_accuracy])
 # vgg_face_16.compile(loss='categorical_crossentropy', optimizer='Adam', metrics=[metrics.categorical_accuracy])
+
 
 plot_model(vgg_model, to_file='model.png', show_shapes=True)
 
@@ -183,18 +185,16 @@ for sub in range(subjects):
 	# 	y = Train_Y_spatial[batch].reshape(1, 5)
 	# 	# output = new_vgg_face_16.fit(X, y, batch_size=32, epochs=1, shuffle=True )
 		
-
-	X = Train_X_spatial.reshape(Train_X_spatial.shape[0], 3, r, w)
+	# theano
+	X = Train_X_spatial.reshape(Train_X_spatial.shape[0], r, w, 3)
 	y = Train_Y_spatial.reshape(Train_Y_spatial.shape[0], 5)
+	
+	# tensorflow
+	# X = Train_X_spatial.reshape(3, Train_X_spatial.shape[0], r, w)
+	# y = Train_Y_spatial.reshape(Train_Y_spatial.shape[0], 5)
+
 	print ("Train_X_shape: " + str(np.shape(X)))
 	print ("Train_Y_shape: " + str(np.shape(y)))
-	# X = Train_X_spatial.reshape(3, r, w)
-	# y = Train_Y_spatial.reshape(5)			
-	# X = K.placeholder(X)
-	# print(type(X))
-	# print(keras.backend.shape(X))
-	# print(X)
-	# print(y)
 	# output = new_vgg_face_16.fit(X, y, batch_size=32, epochs=1, shuffle=True )
 	output = vgg_model.fit(X, y, batch_size=2, epochs=10)
 	###########################################################
