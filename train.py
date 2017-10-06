@@ -123,18 +123,8 @@ temporal_model.compile(loss='categorical_crossentropy', optimizer='Adam', metric
 #########################################
 
 ################# Pretrained Model ###################
-# vgg_model = Sequential()
-# vgg_face_16 = keras.models.load_model('VGG_Face_Deep_16.h5')
 vgg_model = VGG_16('VGG_Face_Deep_16.h5')
-# vgg_model.add(vgg_face_16)
-# vgg_model.add(Dense(5, activation = 'softmax'))
 vgg_model.compile(loss='categorical_crossentropy', optimizer='Adam', metrics=[metrics.categorical_accuracy])
-# prediction = Dense(5, activation = 'softmax')(vgg_face_16.output)
-# new_vgg_face_16 = Model(input = vgg_face_16.input, output = prediction)
-
-# new_vgg_face_16.compile(loss='categorical_crossentropy', optimizer='Adam', metrics=[metrics.categorical_accuracy])
-# vgg_face_16.compile(loss='categorical_crossentropy', optimizer='Adam', metrics=[metrics.categorical_accuracy])
-
 
 plot_model(vgg_model, to_file='model.png', show_shapes=True)
 
@@ -175,16 +165,7 @@ for sub in range(subjects):
 	print ("Train_Y_shape: " + str(np.shape(Train_Y_spatial)))
 	print ("Test_X_shape: " + str(np.shape(Test_X_spatial)))	
 	print ("Test_Y_shape: " + str(np.shape(Test_Y_spatial)))	
-	# print(Train_X_spatial)
-	##################### VGG FACE 16 #########################
-	# for batch in range(Train_X_spatial.shape[0]):
-	# 	# print(batch)
-	# 	X = Train_X_spatial[batch].reshape(1, 3, r, w)
-	# 	# X = K.placeholder(X)
-	# 	# print(type(X))
-	# 	y = Train_Y_spatial[batch].reshape(1, 5)
-	# 	# output = new_vgg_face_16.fit(X, y, batch_size=32, epochs=1, shuffle=True )
-		
+
 	# theano
 	X = Train_X_spatial.reshape(Train_X_spatial.shape[0], r, w, 3)
 	y = Train_Y_spatial.reshape(Train_Y_spatial.shape[0], 5)
