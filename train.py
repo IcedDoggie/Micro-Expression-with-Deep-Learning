@@ -20,16 +20,18 @@ from keras.utils import np_utils, plot_model
 from keras import metrics
 from keras import backend as K
 from keras.models import model_from_json
-from keras.layers import Dense, Dropout, Flatten
+from keras.layers import Dense, Dropout, Flatten, Activation
 from keras.layers import Conv2D, MaxPooling2D
 from keras.preprocessing.sequence import pad_sequences
 import keras
+
+import theano
 
 from labelling import collectinglabel
 from reordering import readinput
 from evaluationmatrix import fpr
 from utilities import Read_Input_Images, get_subfolders_num, data_loader_with_LOSO, label_matching, duplicate_channel
-from models import VGG_16
+from models import VGG_16, LSTM_KAIST, CNN_KAIST
 
 ############## Path Preparation ######################
 dB = "CASME2_TIM"
@@ -100,35 +102,18 @@ print("Loaded Labels into the tray...")
 
 
 ########### Model #######################
-model = Sequential()
-model.add(Conv2D( 32, kernel_size=(1, 1), strides=(1,1), input_shape=(50, 50, 1) ))
-model.add(MaxPooling2D(pool_size=3, strides=2))
-model.add(Conv2D( 64, kernel_size=(1, 1), activation='relu'))
-model.add(MaxPooling2D(pool_size=3, strides=2))
-model.add(Conv2D( 64, kernel_size=(1, 1), activation='relu'))
-model.add(MaxPooling2D(pool_size=3, strides=2))
-model.add(Dense( 512, activation='relu'))
-model.add(Dense( 512, activation='relu'))
-model.add(Flatten())
-model.add(Dense( 5, activation='softmax'))
-model.compile(loss='mean_absolute_error',optimizer='Adam',metrics=[metrics.categorical_accuracy])
+kaist_cnn = CNN_KAIST()
+kaist_cnn.compile(loss='mean_absolute_error',optimizer='Adam',metrics=[metrics.categorical_accuracy])
 
-
-temporal_model = Sequential()
-temporal_model.add(LSTM(512, return_sequences=True, input_shape=(5, pad_sequence)))
-temporal_model.add(LSTM(512, return_sequences=False))
-temporal_model.add(Dense(128, activation='sigmoid'))
-temporal_model.add(Dense(5, activation='sigmoid'))
-temporal_model.compile(loss='categorical_crossentropy', optimizer='Adam', metrics=[metrics.categorical_accuracy])
+kaist_lstm = LSTM_KAIST()
+kaist_lstm.compile(loss='categorical_crossentropy', optimizer='Adam', metrics=[metrics.categorical_accuracy])
 #########################################
 
 ################# Pretrained Model ###################
 vgg_model = VGG_16('VGG_Face_Deep_16.h5')
 vgg_model.compile(loss='categorical_crossentropy', optimizer='Adam', metrics=[metrics.categorical_accuracy])
-
 plot_model(vgg_model, to_file='model.png', show_shapes=True)
 
-# plot_model(new_vgg_face_16, to_file='model.png', show_shapes=True)
 ######################################################
 
 ########### Training Process ############
@@ -150,16 +135,11 @@ for sub in range(subjects):
 
 	# Extend Y labels 10 fold, so that all images have labels
 	Train_Y_spatial = np.repeat(Train_Y, 10, axis=0)
-	# print(Train_Y_spatial.shape)
-	# Train_Y_spatial = Train_Y_spatial.reshape(int(Train_Y_spatial.shape[0]/5), 5)
 	Test_Y_spatial = np.repeat(Test_Y, 10, axis=0)
-	# Test_Y_spatial = Test_Y_spatial.reshape(int(Test_Y_spatial.shape[0]/5), 5)
-
 	
-
 	# Duplicate channel of input image
 	Train_X_spatial = duplicate_channel(Train_X_spatial)
-	
+	Test_X_spatial = duplicate_channel(Test_X_spatial)
 
 	print ("Train_X_shape: " + str(np.shape(Train_X_spatial)))
 	print ("Train_Y_shape: " + str(np.shape(Train_Y_spatial)))
@@ -176,16 +156,22 @@ for sub in range(subjects):
 
 	print ("Train_X_shape: " + str(np.shape(X)))
 	print ("Train_Y_shape: " + str(np.shape(y)))
-	# output = new_vgg_face_16.fit(X, y, batch_size=32, epochs=1, shuffle=True )
-	output = vgg_model.fit(X, y, batch_size=2, epochs=10)
+	################### Spatial Encoder #######################
+	vgg_model.fit(X, y, batch_size=48, epochs=1, shuffle=True)
+
+	model = Model(inputs=vgg_model.input, outputs=vgg_model.layers[36].output)
+	output = model.predict(X)
+	print(output)
+
+
+	# pred = output[-2].predict(X)
+	# output = vgg_model.layers[-2](X, y, batch_size=1, epochs=1)
+	# convout1 = Activation('relu')
+	# convout1_f = theano.function([vgg_model.get_input(train=False)], convout1.get_output(train=False))
+	# print(convout1_f)
+
 	###########################################################
 
-
-	
-	# ############ Spatial Encoder ###############
-	# output = model.fit(Train_X_spatial, Train_Y_spatial, batch_size=32, epochs=1, validation_split=0.05, shuffle=True )
-	# features = model.predict(Train_X_spatial)
-	# ############################################
 
 	# ################ Temporal Encoder #######################
 	# # features = model.predict(Train_X)
