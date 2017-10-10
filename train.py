@@ -107,11 +107,18 @@ kaist_cnn.compile(loss='mean_absolute_error',optimizer='Adam',metrics=[metrics.c
 
 kaist_lstm = LSTM_KAIST()
 kaist_lstm.compile(loss='categorical_crossentropy', optimizer='Adam', metrics=[metrics.categorical_accuracy])
+
+temporal_model = Sequential()
+temporal_model.add(LSTM(2622, return_sequences=True, input_shape=(10, 2622)))
+temporal_model.add(LSTM(1000, return_sequences=False))
+temporal_model.add(Dense(128, activation='sigmoid'))
+temporal_model.add(Dense(5, activation='sigmoid'))
+temporal_model.compile(loss='categorical_crossentropy', optimizer='Adam', metrics=[metrics.categorical_accuracy])
 #########################################
 
 ################# Pretrained Model ###################
 vgg_model = VGG_16('VGG_Face_Deep_16.h5')
-vgg_model.compile(loss='categorical_crossentropy', optimizer='Adam', metrics=[metrics.categorical_accuracy])
+vgg_model.compile(lr=0.0001, loss='categorical_crossentropy', optimizer='Adam', metrics=[metrics.categorical_accuracy])
 plot_model(vgg_model, to_file='model.png', show_shapes=True)
 
 ######################################################
@@ -156,36 +163,40 @@ for sub in range(subjects):
 
 	print ("Train_X_shape: " + str(np.shape(X)))
 	print ("Train_Y_shape: " + str(np.shape(y)))
-	################### Spatial Encoder #######################
+	##################### VGG FACE 16 #########################
+
+		
+
+	X = Train_X_spatial.reshape(Train_X_spatial.shape[0], r, w, 3)
+	y = Train_Y_spatial.reshape(Train_Y_spatial.shape[0], 5)
+
+	test_X = Test_X_spatial.reshape(Test_X_spatial.shape[0], r, w, 3)
+	test_y = Test_Y_spatial.reshape(Test_Y_spatial.shape[0], 5)
+	# print ("Train_X_shape: " + str(np.shape(X)))
+	# print ("Train_Y_shape: " + str(np.shape(y)))
+
+	# output = new_vgg_face_16.fit(X, y, batch_size=32, epochs=1, shuffle=True )
+	# tbCallBack = keras.callbacks.TensorBoard(log_dir='./tensorboard', batch_size=32, write_graph=True)
+	# vgg_model.fit(X, y, batch_size=32, epochs=10, shuffle=True, callbacks=[tbCallBack])
 	vgg_model.fit(X, y, batch_size=48, epochs=1, shuffle=True)
 
 	model = Model(inputs=vgg_model.input, outputs=vgg_model.layers[36].output)
 	output = model.predict(X)
-	print(output)
+	# print(output.shape)
 
-
-	# pred = output[-2].predict(X)
-	# output = vgg_model.layers[-2](X, y, batch_size=1, epochs=1)
-	# convout1 = Activation('relu')
-	# convout1_f = theano.function([vgg_model.get_input(train=False)], convout1.get_output(train=False))
-	# print(convout1_f)
 
 	###########################################################
 
+	####################### Temporal Encoder ###########################
+	features = output.reshape(int(output.shape[0]/10), 10, output.shape[1])
+	print(features.shape)
+	temporal_model.fit(features, Train_Y, batch_size = 32, epochs=1)
 
-	# ################ Temporal Encoder #######################
-	# # features = model.predict(Train_X)
-	# print(features.shape)
-	# features = features.reshape(10, int(features.shape[0]/10), features.shape[1])
-	# print(features.shape)
-	# # features = pad_sequences(features, maxlen=pad_sequence)
-	# features = features.reshape(features.shape[1], features.shape[2], features.shape[0])
-	# print(features.shape)
-	# temporal_model.fit(features, Train_Y, batch_size = 10, epochs=1)
-	# ###########################################################
+	####################################################################
 
-	# #################### Evaluation #########################
-	# # print(output.values)
-	# # output2 = temporal_model.fit(output, batch_size=10, epochs=1, validation_split=0.05)
-	# # score, acc = model.evaluate(Test_X, Test_Y, batch_size=10)
-	# #########################################################
+	####################### Preliminary Evaluation ######################
+	output = model.predict(test_X)
+	features = output.reshape(int(output.shape[0]/10), 10, output.shape[1])
+	output = temporal_model.predict(features)
+	print(output)
+	#####################################################################
