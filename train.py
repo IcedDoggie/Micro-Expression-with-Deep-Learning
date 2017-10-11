@@ -130,11 +130,19 @@ plot_model(vgg_model, to_file='model.png', show_shapes=True)
 # 3) saving model architecture
 # 4) Saving Checkpoint
 # 5) make prediction (done)
-
+tot_mat = np.zeros((n_exp,n_exp))
 for sub in range(subjects):
+	cat_path = tensorboard_path + str(sub) + "/"
+	os.mkdir(cat_path)
+	tbCallBack = keras.callbacks.TensorBoard(log_dir=cat_path, write_graph=True)
+
+	cat_path2 = tensorboard_path + str(sub) + "spat/"
+	os.mkdir(cat_path2)
+	tbCallBack2 = keras.callbacks.TensorBoard(log_dir=cat_path2, write_graph=True)
+
 	image_label_mapping = np.empty([0])
 
-	Train_X, Train_Y, Test_X, Test_Y = data_loader_with_LOSO(sub, SubperdB, labelperSub, subjects)
+	Train_X, Train_Y, Test_X, Test_Y, Test_Y_gt = data_loader_with_LOSO(sub, SubperdB, labelperSub, subjects)
 
 	# Rearrange Training labels into a vector of images, breaking sequence
 	Train_X_spatial = Train_X.reshape(Train_X.shape[0]*10, r, w, 1)
@@ -142,27 +150,23 @@ for sub in range(subjects):
 
 	# Extend Y labels 10 fold, so that all images have labels
 	Train_Y_spatial = np.repeat(Train_Y, 10, axis=0)
+	# print(Train_Y_spatial.shape)
+	# Train_Y_spatial = Train_Y_spatial.reshape(int(Train_Y_spatial.shape[0]/5), 5)
 	Test_Y_spatial = np.repeat(Test_Y, 10, axis=0)
+	# Test_Y_spatial = Test_Y_spatial.reshape(int(Test_Y_spatial.shape[0]/5), 5)
+
 	
+
 	# Duplicate channel of input image
 	Train_X_spatial = duplicate_channel(Train_X_spatial)
 	Test_X_spatial = duplicate_channel(Test_X_spatial)
-
-	print ("Train_X_shape: " + str(np.shape(Train_X_spatial)))
-	print ("Train_Y_shape: " + str(np.shape(Train_Y_spatial)))
-	print ("Test_X_shape: " + str(np.shape(Test_X_spatial)))	
-	print ("Test_Y_shape: " + str(np.shape(Test_Y_spatial)))	
-
-	# theano
-	X = Train_X_spatial.reshape(Train_X_spatial.shape[0], r, w, 3)
-	y = Train_Y_spatial.reshape(Train_Y_spatial.shape[0], 5)
 	
-	# tensorflow
-	# X = Train_X_spatial.reshape(3, Train_X_spatial.shape[0], r, w)
-	# y = Train_Y_spatial.reshape(Train_Y_spatial.shape[0], 5)
 
-	print ("Train_X_shape: " + str(np.shape(X)))
-	print ("Train_Y_shape: " + str(np.shape(y)))
+	# print ("Train_X_shape: " + str(np.shape(Train_X_spatial)))
+	# print ("Train_Y_shape: " + str(np.shape(Train_Y_spatial)))
+	# print ("Test_X_shape: " + str(np.shape(Test_X_spatial)))	
+	# print ("Test_Y_shape: " + str(np.shape(Test_Y_spatial)))	
+	# print(Train_X_spatial)
 	##################### VGG FACE 16 #########################
 
 		
@@ -177,8 +181,8 @@ for sub in range(subjects):
 
 	# output = new_vgg_face_16.fit(X, y, batch_size=32, epochs=1, shuffle=True )
 	# tbCallBack = keras.callbacks.TensorBoard(log_dir='./tensorboard', batch_size=32, write_graph=True)
-	# vgg_model.fit(X, y, batch_size=32, epochs=10, shuffle=True, callbacks=[tbCallBack])
-	vgg_model.fit(X, y, batch_size=48, epochs=1, shuffle=True)
+	vgg_model.fit(X, y, batch_size=48, epochs=10, shuffle=True, callbacks=[tbCallBack2])
+	# vgg_model.fit(X, y, batch_size=48, epochs=10, shuffle=True)
 
 	model = Model(inputs=vgg_model.input, outputs=vgg_model.layers[36].output)
 	output = model.predict(X)
@@ -189,8 +193,9 @@ for sub in range(subjects):
 
 	####################### Temporal Encoder ###########################
 	features = output.reshape(int(output.shape[0]/10), 10, output.shape[1])
-	print(features.shape)
-	temporal_model.fit(features, Train_Y, batch_size = 32, epochs=1)
+	# print(features.shape)
+	temporal_model.fit(features, Train_Y, batch_size = 32, epochs=10, callbacks=[tbCallBack])
+	# temporal_model.fit(features, Train_Y, batch_size = 32, epochs=10)
 
 	####################################################################
 
@@ -200,3 +205,50 @@ for sub in range(subjects):
 	output = temporal_model.predict(features)
 	print(output)
 	#####################################################################
+
+	################### Formal Evaluation ############
+	predict=temporal_model.predict_classes(features)
+	print (predict)
+	print (Test_Y_gt)	
+
+	ct=confusion_matrix(Test_Y_gt,predict)
+	# check the order of the CT
+	order=np.unique(np.concatenate((predict,Test_Y_gt)))
+	
+	#create an array to hold the CT for each CV
+	mat=np.zeros((n_exp,n_exp))
+	#put the order accordingly, in order to form the overall ConfusionMat
+	for m in range(len(order)):
+		for n in range(len(order)):
+			mat[int(order[m]),int(order[n])]=ct[m,n]
+		   
+	tot_mat=mat+tot_mat
+	# write each CT of each CV into .txt file
+	if not os.path.exists(workplace+'Classification/'+'Result/'+dB+'/'):
+		os.mkdir(workplace+'Classification/'+ 'Result/'+dB+'/')
+		
+	with open(workplace+'Classification/'+ 'Result/'+dB+'/sub_CT.txt','a') as csvfile:
+			thewriter=csv.writer(csvfile, delimiter=' ')
+			thewriter.writerow('Sub ' + str(sub+1))
+			thewriter=csv.writer(csvfile,dialect=csv.excel_tab)
+			for row in ct:
+				thewriter.writerow(row)
+			thewriter.writerow(order)
+			thewriter.writerow('\n')
+			
+	if sub==subjects-1:
+			# compute the accuracy, F1, P and R from the overall CT
+			microAcc=np.trace(tot_mat)/np.sum(tot_mat)
+			[f1,p,r]=fpr(tot_mat,n_exp)
+
+			# save into a .txt file
+			with open(workplace+'Classification/'+ 'Result/'+dB+'/final_CT.txt','w') as csvfile:
+				thewriter=csv.writer(csvfile,dialect=csv.excel_tab)
+				for row in tot_mat:
+					thewriter.writerow(row)
+					
+				thewriter=csv.writer(csvfile, delimiter=' ')
+				thewriter.writerow('micro:' + str(microAcc))
+				thewriter.writerow('F1:' + str(f1))
+				thewriter.writerow('Precision:' + str(p))
+				thewriter.writerow('Recall:' + str(r))			

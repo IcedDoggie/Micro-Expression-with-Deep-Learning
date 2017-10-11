@@ -127,6 +127,7 @@ def data_loader_with_LOSO(subject, SubjectPerDatabase, y_labels, subjects):
 	Train_Y = []
 	Test_X = np.array(SubjectPerDatabase[subject])
 	Test_Y = np_utils.to_categorical(y_labels[subject], 5)
+	Test_Y_gt = y_labels[subject]
 
 	########### Leave-One-Subject-Out ###############
 	if subject==0:
@@ -159,7 +160,7 @@ def data_loader_with_LOSO(subject, SubjectPerDatabase, y_labels, subjects):
 	# print ("Test_X_shape: " + str(np.shape(Test_X)))	
 	# print ("Test_Y_shape: " + str(np.shape(Test_Y)))	
 
-	return Train_X, Train_Y, Test_X, Test_Y
+	return Train_X, Train_Y, Test_X, Test_Y, Test_Y_gt
 
 
 def duplicate_channel(X):
