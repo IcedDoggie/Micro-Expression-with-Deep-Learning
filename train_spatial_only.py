@@ -81,8 +81,7 @@ for item in IgnoredSamples:
 spatial_size = 224
 r=w=spatial_size
 resizedFlag=1
-subjects=26
-# subjects=2
+subjects=1
 samples=246
 n_exp=5
 VidPerSubject = get_subfolders_num(inputDir, IgnoredSamples_index)
@@ -106,16 +105,13 @@ print("Loaded Labels into the tray...")
 ########### Model #######################
 sgd = optimizers.SGD(lr=0.0001, decay=1e-7, momentum=0.9, nesterov=True)
 adam = optimizers.Adam(lr=0.00001)
-
-temporal_model = Sequential()
-temporal_model.add(LSTM(2622, return_sequences=True, input_shape=(10, 50176)))
-temporal_model.add(LSTM(1000, return_sequences=False))
-temporal_model.add(Dense(128, activation='relu'))
-temporal_model.add(Dense(5, activation='sigmoid'))
-temporal_model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=[metrics.categorical_accuracy, mean_pred])
 #########################################
 
-
+################# Pretrained Model ###################
+vgg_model = VGG_16('VGG_Face_Deep_16.h5')
+vgg_model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=[metrics.sparse_categorical_accuracy])
+plot_model(vgg_model, to_file='model.png', show_shapes=True)
+######################################################
 
 ########### Training Process ############
 # Todo:
@@ -126,7 +122,8 @@ temporal_model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=
 # 5) make prediction (done)
 tensorboard_path = "/home/ice/Documents/Micro-Expression/tensorboard/"
 tot_mat = np.zeros((n_exp,n_exp))
-temporal_weights_name = 'temporal_ID_10.h5'
+spatial_weights_name = 'vgg_spatial_ID_9.h5'
+temporal_weights_name = 'temporal_ID_9.h5'
 for sub in range(subjects):
 	# cat_path = tensorboard_path + str(sub) + "/"
 	# os.mkdir(cat_path)
@@ -140,40 +137,74 @@ for sub in range(subjects):
 
 	Train_X, Train_Y, Test_X, Test_Y, Test_Y_gt = data_loader_with_LOSO(sub, SubperdB, labelperSub, subjects, vid_id, sub_id)
 
+	# Rearrange Training labels into a vector of images, breaking sequence
+	Train_X_spatial = Train_X.reshape(Train_X.shape[0]*10, r, w, 1)
+	Test_X_spatial = Test_X.reshape(Test_X.shape[0]* 10, r, w, 1)
 
+	# Extend Y labels 10 fold, so that all images have labels
+	Train_Y_spatial = np.repeat(Train_Y, 10, axis=0)
+	Test_Y_spatial = np.repeat(Test_Y, 10, axis=0)
 
-	####################### Temporal Encoder ###########################
-	# temporal_model.fit(features, Train_Y, batch_size = 1, epochs=40, callbacks=[tbCallBack])
-	temporal_model.fit(Train_X, Train_Y, batch_size = 1, epochs=1)
-	temporal_model.save_weights(temporal_weights_name)
-	####################################################################
+	
+
+	# Duplicate channel of input image
+	Train_X_spatial = duplicate_channel(Train_X_spatial)
+	Test_X_spatial = duplicate_channel(Test_X_spatial)
+	
+
+	# print ("Train_X_shape: " + str(np.shape(Train_X_spatial)))
+	# print ("Train_Y_shape: " + str(np.shape(Train_Y_spatial)))
+	# print ("Test_X_shape: " + str(np.shape(Test_X_spatial)))	
+	# print ("Test_Y_shape: " + str(np.shape(Test_Y_spatial)))	
+	# print(Train_X_spatial)
+	##################### VGG FACE 16 #########################
+
+		
+
+	X = Train_X_spatial.reshape(Train_X_spatial.shape[0], r, w, 3)
+	y = Train_Y_spatial.reshape(Train_Y_spatial.shape[0], 5)
+
+	test_X = Test_X_spatial.reshape(Test_X_spatial.shape[0], r, w, 3)
+	# test_y = Test_Y_spatial.reshape(Test_Y_spatial.shape[0], 5)
+	test_y = np.repeat(Test_Y_gt, 10, axis=0)
+
+	for layer in vgg_model.layers[:33]:
+		layer.trainable = False
+
+	vgg_model.fit(X, y, batch_size=1, epochs=1, shuffle=True)
+	# vgg_model.fit(X, y, batch_size=1, epochs=10, shuffle=True, callbacks=[tbCallBack2])
+	vgg_model.save_weights(spatial_weights_name)
+	###########################################################
 
 
 	################### Formal Evaluation #########################
-	predict=temporal_model.predict_classes(Test_X, batch_size=1)
-	print (predict)
-	print (Test_Y_gt)	
+	predict = vgg_model.predict_classes(test_X, batch_size=1)
+	print(predict)
+	# print(Test_Y_gt)
+	print(test_y)
 
-	ct=confusion_matrix(Test_Y_gt,predict)
+
+	ct=confusion_matrix(test_y, predict)
 	# check the order of the CT
-	order=np.unique(np.concatenate((predict,Test_Y_gt)))
+	order=np.unique(np.concatenate((predict,test_y)))
 	
-	#create an array to hold the CT for each CV
+	# create an array to hold the CT for each CV
 	mat=np.zeros((n_exp,n_exp))
-	#put the order accordingly, in order to form the overall ConfusionMat
+	# put the order accordingly, in order to form the overall ConfusionMat
 	for m in range(len(order)):
 		for n in range(len(order)):
 			mat[int(order[m]),int(order[n])]=ct[m,n]
 		   
-	tot_mat=mat+tot_mat
+	tot_mat = mat + tot_mat
 	################################################################
 	
+
 	#################### cumulative f1 plotting ######################
 	microAcc=np.trace(tot_mat)/np.sum(tot_mat)
 	[f1,precision,recall]=fpr(tot_mat,n_exp)
 
 
-	file = open(workplace+'Classification/'+ 'Result/'+dB+'/f1_temporal_only.txt', 'a')
+	file = open(workplace+'Classification/'+ 'Result/'+dB+'/f1.txt', 'a')
 	file.write(str(f1) + "\n")
 	file.close()
 	##################################################################
