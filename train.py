@@ -83,8 +83,8 @@ for item in IgnoredSamples:
 spatial_size = 224
 r=w=spatial_size
 resizedFlag=1
-subjects=26
-# subjects=2
+# subjects=26
+subjects=2
 samples=246
 n_exp=5
 VidPerSubject = get_subfolders_num(inputDir, IgnoredSamples_index)
@@ -279,6 +279,8 @@ for sub in range(subjects):
 		predict = svm_classifier.predict(test_X)
 
 
+		Test_Y_gt = np.repeat(Test_Y_gt, 10, axis=0)
+
 	##############################################################
 
 	#################### Confusion Matrix Construction #############
@@ -310,5 +312,5 @@ for sub in range(subjects):
 	##################################################################
 
 	################# write each CT of each CV into .txt file #####################
-	record_scores(workplace, dB, ct, sub, order, tot_mat, n_exp)
+	record_scores(workplace, dB, ct, sub, order, tot_mat, n_exp, subjects)
 	###############################################################################

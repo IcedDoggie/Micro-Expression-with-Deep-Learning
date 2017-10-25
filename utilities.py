@@ -190,7 +190,7 @@ def duplicate_channel(X):
 
 	return X
 
-def record_scores(workplace, dB, ct, sub, order, tot_mat, n_exp):
+def record_scores(workplace, dB, ct, sub, order, tot_mat, n_exp, subjects):
 	if not os.path.exists(workplace+'Classification/'+'Result/'+dB+'/'):
 		os.mkdir(workplace+'Classification/'+ 'Result/'+dB+'/')
 		
