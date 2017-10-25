@@ -189,3 +189,34 @@ def duplicate_channel(X):
 	print(X.shape)
 
 	return X
+
+def record_scores(workplace, dB, ct, sub, order, tot_mat, n_exp):
+	if not os.path.exists(workplace+'Classification/'+'Result/'+dB+'/'):
+		os.mkdir(workplace+'Classification/'+ 'Result/'+dB+'/')
+		
+	with open(workplace+'Classification/'+ 'Result/'+dB+'/sub_CT.txt','a') as csvfile:
+			thewriter=csv.writer(csvfile, delimiter=' ')
+			thewriter.writerow('Sub ' + str(sub+1))
+			thewriter=csv.writer(csvfile,dialect=csv.excel_tab)
+			for row in ct:
+				thewriter.writerow(row)
+			thewriter.writerow(order)
+			thewriter.writerow('\n')
+			
+	if sub==subjects-1:
+			# compute the accuracy, F1, P and R from the overall CT
+			microAcc=np.trace(tot_mat)/np.sum(tot_mat)
+			[f1,p,r]=fpr(tot_mat,n_exp)
+			print(tot_mat)
+			print("F1-Score: " + str(f1))
+			# save into a .txt file
+			with open(workplace+'Classification/'+ 'Result/'+dB+'/final_CT.txt','w') as csvfile:
+				thewriter=csv.writer(csvfile,dialect=csv.excel_tab)
+				for row in tot_mat:
+					thewriter.writerow(row)
+					
+				thewriter=csv.writer(csvfile, delimiter=' ')
+				thewriter.writerow('micro:' + str(microAcc))
+				thewriter.writerow('F1:' + str(f1))
+				thewriter.writerow('Precision:' + str(p))
+				thewriter.writerow('Recall:' + str(r))			

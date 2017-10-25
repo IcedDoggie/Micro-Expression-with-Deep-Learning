@@ -129,15 +129,5 @@ def VGG_16_test(weights_path=None):
 
 	return model
 
-def global_average_pooling(x):
-	return K.mean(x, axis = (2, 3))
-	
-def global_average_pooling_shape(input_shape):
-	return input_shape[0:2]
 
-def get_model(weights_path):
-	model = VGG_16_test(weights_path)
-	model.add(Lambda(global_average_pooling, 
-		output_shape=global_average_pooling_shape))
-	model.add(Dense(2, activation='softmax', ))
 	

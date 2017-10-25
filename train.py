@@ -34,6 +34,7 @@ from labelling import collectinglabel
 from reordering import readinput
 from evaluationmatrix import fpr
 from utilities import Read_Input_Images, get_subfolders_num, data_loader_with_LOSO, label_matching, duplicate_channel
+from utilities import record_scores
 from models import VGG_16
 
 ############## Path Preparation ######################
@@ -280,27 +281,27 @@ for sub in range(subjects):
 
 	##############################################################
 
-
+	#################### Confusion Matrix Construction #############
 	print (predict)
 	print (Test_Y_gt)	
 
-	ct=confusion_matrix(Test_Y_gt,predict)
+	ct = confusion_matrix(Test_Y_gt,predict)
 	# check the order of the CT
-	order=np.unique(np.concatenate((predict,Test_Y_gt)))
+	order = np.unique(np.concatenate((predict,Test_Y_gt)))
 	
-	#create an array to hold the CT for each CV
-	mat=np.zeros((n_exp,n_exp))
-	#put the order accordingly, in order to form the overall ConfusionMat
+	# create an array to hold the CT for each CV
+	mat = np.zeros((n_exp,n_exp))
+	# put the order accordingly, in order to form the overall ConfusionMat
 	for m in range(len(order)):
 		for n in range(len(order)):
 			mat[int(order[m]),int(order[n])]=ct[m,n]
 		   
-	tot_mat=mat+tot_mat
+	tot_mat = mat + tot_mat
 	################################################################
 	
 	#################### cumulative f1 plotting ######################
-	microAcc=np.trace(tot_mat)/np.sum(tot_mat)
-	[f1,precision,recall]=fpr(tot_mat,n_exp)
+	microAcc = np.trace(tot_mat) / np.sum(tot_mat)
+	[f1,precision,recall] = fpr(tot_mat,n_exp)
 
 
 	file = open(workplace+'Classification/'+ 'Result/'+dB+'/f1.txt', 'a')
@@ -309,33 +310,5 @@ for sub in range(subjects):
 	##################################################################
 
 	################# write each CT of each CV into .txt file #####################
-	if not os.path.exists(workplace+'Classification/'+'Result/'+dB+'/'):
-		os.mkdir(workplace+'Classification/'+ 'Result/'+dB+'/')
-		
-	with open(workplace+'Classification/'+ 'Result/'+dB+'/sub_CT.txt','a') as csvfile:
-			thewriter=csv.writer(csvfile, delimiter=' ')
-			thewriter.writerow('Sub ' + str(sub+1))
-			thewriter=csv.writer(csvfile,dialect=csv.excel_tab)
-			for row in ct:
-				thewriter.writerow(row)
-			thewriter.writerow(order)
-			thewriter.writerow('\n')
-			
-	if sub==subjects-1:
-			# compute the accuracy, F1, P and R from the overall CT
-			microAcc=np.trace(tot_mat)/np.sum(tot_mat)
-			[f1,p,r]=fpr(tot_mat,n_exp)
-			print(tot_mat)
-			print("F1-Score: " + str(f1))
-			# save into a .txt file
-			with open(workplace+'Classification/'+ 'Result/'+dB+'/final_CT.txt','w') as csvfile:
-				thewriter=csv.writer(csvfile,dialect=csv.excel_tab)
-				for row in tot_mat:
-					thewriter.writerow(row)
-					
-				thewriter=csv.writer(csvfile, delimiter=' ')
-				thewriter.writerow('micro:' + str(microAcc))
-				thewriter.writerow('F1:' + str(f1))
-				thewriter.writerow('Precision:' + str(p))
-				thewriter.writerow('Recall:' + str(r))		
+	record_scores(workplace, dB, ct, sub, order, tot_mat, n_exp)
 	###############################################################################
