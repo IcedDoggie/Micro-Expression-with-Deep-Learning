@@ -82,8 +82,8 @@ for item in IgnoredSamples:
 spatial_size = 224
 r=w=spatial_size
 resizedFlag=1
-# subjects=26
-subjects=2
+subjects=26
+# subjects=2
 samples=246
 n_exp=5
 VidPerSubject = get_subfolders_num(inputDir, IgnoredSamples_index)
@@ -93,10 +93,10 @@ pad_sequence = 10
 ############################################
 
 ############## Flags ####################
-train_spatial_flag = 1
+train_spatial_flag = 0
 train_temporal_flag = 0
-svm_flag = 0
-finetuning_flag = 1
+svm_flag = 1
+finetuning_flag = 0
 tensorboard_flag = 0
 #########################################
 
@@ -137,7 +137,7 @@ vgg_model = VGG_16('VGG_Face_Deep_16.h5')
 vgg_model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=[metrics.sparse_categorical_accuracy])
 plot_model(vgg_model, to_file='model.png', show_shapes=True)
 
-svm_classifier = SVC()
+svm_classifier = SVC(kernel='linear', C=1)
 
 ######################################################
 
@@ -265,6 +265,18 @@ for sub in range(subjects):
 
 		# Testing
 		predict = temporal_model.predict_classes(Test_X, batch_size = 1)
+
+	elif svm_flag == 1 and finetuning_flag == 0:
+		# no finetuning
+
+		X = vgg_model.predict(X, batch_size=1)
+		y_for_svm = np.argmax(y, axis=1)
+
+		svm_classifier.fit(X, y_for_svm)
+
+		test_X = vgg_model.predict(test_X, batch_size=1)
+		predict = svm_classifier.predict(test_X)
+
 
 	##############################################################
 
