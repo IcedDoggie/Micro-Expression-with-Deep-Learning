@@ -25,6 +25,7 @@ from keras.layers import Dense, Dropout, Flatten, Activation
 from keras.layers import Conv2D, MaxPooling2D
 from keras.preprocessing.sequence import pad_sequences
 from keras import optimizers
+from keras.applications.vgg16 import VGG16 as keras_vgg16
 import keras
 
 import theano
@@ -33,7 +34,7 @@ from labelling import collectinglabel
 from reordering import readinput
 from evaluationmatrix import fpr
 from utilities import Read_Input_Images, get_subfolders_num, data_loader_with_LOSO, label_matching, duplicate_channel
-from models import VGG_16, LSTM_KAIST, CNN_KAIST, F1_Evaluation, mean_pred
+from models import VGG_16
 
 ############## Path Preparation ######################
 dB = "CASME2_TIM"
@@ -51,14 +52,7 @@ vidName=[str(x.value) for x in colm]
 colm=ws.col_slice(colx=6,start_rowx=1,end_rowx=None)
 expression=[str(x.value) for x in colm]
 table=np.transpose(np.array([np.array(iD),np.array(vidName),np.array(expression)],dtype=str))
-# print(table)
 ###############################################################
-
-###################### Flags #########################
-spatial_module_flag = 0
-temporal_module_flag = 0
-
-######################################################
 
 
 
@@ -81,15 +75,15 @@ for item in IgnoredSamples:
 	item = item.split('sub', 1)[1]
 	item = int(item.split('/', 1)[0]) - 1 
 	IgnoredSamples_index = np.append(IgnoredSamples_index, item)
-IgnoredSamples_index = []
+
 #######################################################################
 
 ############## Variables ###################
 spatial_size = 224
 r=w=spatial_size
 resizedFlag=1
-subjects=26
-# subjects=2
+# subjects=26
+subjects=2
 samples=246
 n_exp=5
 VidPerSubject = get_subfolders_num(inputDir, IgnoredSamples_index)
@@ -98,12 +92,20 @@ data_dim = r * w
 pad_sequence = 10
 ############################################
 
+############## Flags ####################
+train_spatial_flag = 1
+train_temporal_flag = 0
+svm_flag = 0
+finetuning_flag = 1
+tensorboard_flag = 0
+#########################################
+
 ################## Clearing labels.txt ################
 os.remove(workplace + "Classification/CASME2_TIM_label.txt")
 #######################################################
 
 ############ Reading Images and Labels ################
-SubperdB, vid_id, sub_id = Read_Input_Images(inputDir, listOfIgnoredSamples, dB, resizedFlag, table, workplace, spatial_size)
+SubperdB = Read_Input_Images(inputDir, listOfIgnoredSamples, dB, resizedFlag, table, workplace, spatial_size)
 print("Loaded Images into the tray...")
 labelperSub = label_matching(workplace, dB, subjects, VidPerSubject)
 print("Loaded Labels into the tray...")
@@ -114,20 +116,28 @@ print("Loaded Labels into the tray...")
 sgd = optimizers.SGD(lr=0.0001, decay=1e-7, momentum=0.9, nesterov=True)
 adam = optimizers.Adam(lr=0.00001)
 
+if train_spatial_flag == 0 and train_temporal_flag == 1:
+	data_dim = spatial_size * spatial_size
+else:
+	data_dim = 4096
 temporal_model = Sequential()
-temporal_model.add(LSTM(2622, return_sequences=True, input_shape=(10, 4096)))
+temporal_model.add(LSTM(2622, return_sequences=True, input_shape=(10, data_dim)))
 temporal_model.add(LSTM(1000, return_sequences=False))
 temporal_model.add(Dense(128, activation='relu'))
 temporal_model.add(Dense(5, activation='sigmoid'))
-temporal_model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=[metrics.categorical_accuracy, mean_pred])
+temporal_model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=[metrics.categorical_accuracy])
 #########################################
 
 ################# Pretrained Model ###################
 
-# vgg_model = VGG_16('VGG_Face_Deep_16.h5')
-vgg_model = VGG_16('imagenet')
+vgg_model = VGG_16('VGG_Face_Deep_16.h5')
+# keras_vgg = keras_vgg16(weights='imagenet')
+
+# vgg_model = VGG_16('imagenet')
 vgg_model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=[metrics.sparse_categorical_accuracy])
 plot_model(vgg_model, to_file='model.png', show_shapes=True)
+
+svm_classifier = SVC()
 
 ######################################################
 
@@ -138,22 +148,28 @@ plot_model(vgg_model, to_file='model.png', show_shapes=True)
 # 3) saving model architecture
 # 4) Saving Checkpoint
 # 5) make prediction (done)
-tensorboard_path = "/home/ice/Documents/Micro-Expression/tensorboard/"
-tot_mat = np.zeros((n_exp,n_exp))
-spatial_weights_name = 'vgg_spatial_ID_9.h5'
-temporal_weights_name = 'temporal_ID_9.h5'
-for sub in range(subjects):
-	# cat_path = tensorboard_path + str(sub) + "/"
-	# os.mkdir(cat_path)
-	# tbCallBack = keras.callbacks.TensorBoard(log_dir=cat_path, write_graph=True)
+if tensorboard_flag == 1:
+	tensorboard_path = "/home/ice/Documents/Micro-Expression/tensorboard/"
 
-	# cat_path2 = tensorboard_path + str(sub) + "spat/"
-	# os.mkdir(cat_path2)
-	# tbCallBack2 = keras.callbacks.TensorBoard(log_dir=cat_path2, write_graph=True)
+tot_mat = np.zeros((n_exp,n_exp))
+spatial_weights_name = 'vgg_spatial_ID_under_dev.h5'
+temporal_weights_name = 'temporal_ID_under_dev.h5'
+for sub in range(subjects):
+
+	############ for tensorboard ###############
+	if tensorboard_flag == 1:
+		cat_path = tensorboard_path + str(sub) + "/"
+		os.mkdir(cat_path)
+		tbCallBack = keras.callbacks.TensorBoard(log_dir=cat_path, write_graph=True)
+
+		cat_path2 = tensorboard_path + str(sub) + "spat/"
+		os.mkdir(cat_path2)
+		tbCallBack2 = keras.callbacks.TensorBoard(log_dir=cat_path2, write_graph=True)
+	#############################################
 
 	image_label_mapping = np.empty([0])
 
-	Train_X, Train_Y, Test_X, Test_Y, Test_Y_gt = data_loader_with_LOSO(sub, SubperdB, labelperSub, subjects, vid_id, sub_id)
+	Train_X, Train_Y, Test_X, Test_Y, Test_Y_gt = data_loader_with_LOSO(sub, SubperdB, labelperSub, subjects)
 
 	# Rearrange Training labels into a vector of images, breaking sequence
 	Train_X_spatial = Train_X.reshape(Train_X.shape[0]*10, r, w, 1)
@@ -174,49 +190,85 @@ for sub in range(subjects):
 	# print ("Test_X_shape: " + str(np.shape(Test_X_spatial)))	
 	# print ("Test_Y_shape: " + str(np.shape(Test_Y_spatial)))	
 	# print(Train_X_spatial)
-	##################### VGG FACE 16 #########################
+	##################### Training & Testing #########################
 
 		
 
-	X = Train_X_spatial.reshape(Train_X_spatial.shape[0], r, w, 3)
+	X = Train_X_spatial.reshape(Train_X_spatial.shape[0], 3, r, w)
 	y = Train_Y_spatial.reshape(Train_Y_spatial.shape[0], 5)
 
-	test_X = Test_X_spatial.reshape(Test_X_spatial.shape[0], r, w, 3)
+	test_X = Test_X_spatial.reshape(Test_X_spatial.shape[0], 3, r, w)
 	test_y = Test_Y_spatial.reshape(Test_Y_spatial.shape[0], 5)
 
-	for layer in vgg_model.layers[:33]:
-		layer.trainable = False
+	###### conv weights must be freezed for transfer learning ######
+	if finetuning_flag == 1:
+		for layer in vgg_model.layers[:33]:
+			layer.trainable = False
+
+	if train_spatial_flag == 1 and train_temporal_flag == 1:
+		# trains encoder until fc, train temporal
+		
+		# Spatial Training
+		if tensorboard_flag == 1:
+			vgg_model.fit(X, y, batch_size=1, epochs=1, shuffle=True, callbacks=[tbCallBack2])
+		else:
+			vgg_model.fit(X, y, batch_size=1, epochs=1, shuffle=True)
+
+		vgg_model.save_weights(spatial_weights_name)
+		model = Model(inputs=vgg_model.input, outputs=vgg_model.layers[35].output)
+		plot_model(model, to_file="spatial_module_FULL_TRAINING.png", show_shapes=True)	
+
+		# Spatial Encoding
+		output = model.predict(X, batch_size = 1)
+		features = output.reshape(int(output.shape[0]/10), 10, output.shape[1])
+		
+		# Temporal Training
+		if tensorboard_flag == 1:
+			temporal_model.fit(features, Train_Y, batch_size=1, epochs=1, callbacks=[tbCallBack])
+		else:
+			temporal_model.fit(features, Train_Y, batch_size=1, epochs=1)	
+
+		temporal_model.save_weights(temporal_weights_name)
+
+		# Testing
+		output = model.predict(test_X, batch_size = 1)
+		features = output.reshape(int(output.shape[0]/10), 10, output.shape[1])
+		predict = temporal_model.predict_classes(features, batch_size=1)
 
 
-	model = Model(inputs=vgg_model.input, outputs=vgg_model.layers[35].output)
-	plot_model(model, to_file="model2.png", show_shapes=True)	
+	elif train_spatial_flag == 1 and train_temporal_flag == 0:
+		# trains spatial module ONLY, no escape
 
-	
-	vgg_model.fit(X, y, batch_size=1, epochs=1, shuffle=True)
-	# vgg_model.fit(X, y, batch_size=1, epochs=10, shuffle=True, callbacks=[tbCallBack2])
-	vgg_model.save_weights(spatial_weights_name)
+		# Spatial Training
+		if tensorboard_flag == 1:
+			vgg_model.fit(X, y, batch_size=1, epochs=1, shuffle=True, callbacks=[tbCallBack2])
+		else:
+			vgg_model.fit(X, y, batch_size=1, epochs=1, shuffle=True)
 
-	model = Model(inputs=vgg_model.input, outputs=vgg_model.layers[34].output)
-	plot_model(model, to_file="model2.png", show_shapes=True)	
+		vgg_model.save_weights(spatial_weights_name)
+		plot_model(vgg_model, to_file="spatial_module_ONLY.png", show_shapes=True)
 
-	output = model.predict(X, batch_size = 1)
+		# Testing
+		predict = vgg_model.predict(test_X, batch_size = 1)
 
-	###########################################################
 
-	####################### Temporal Encoder ###########################
-	features = output.reshape(int(output.shape[0]/10), 10, output.shape[1])
-	# temporal_model.fit(features, Train_Y, batch_size = 1, epochs=40, callbacks=[tbCallBack])
-	temporal_model.fit(features, Train_Y, batch_size = 1, epochs=1)
-	temporal_model.save_weights(temporal_weights_name)
-	####################################################################
+	elif train_spatial_flag == 0 and train_temporal_flag == 1:
+		# trains temporal module ONLY.
 
-	####################### Preliminary Evaluation ######################
-	output = model.predict(test_X, batch_size=1) # encode spatial features
-	features = output.reshape(int(output.shape[0]/10), 10, output.shape[1])
-	#####################################################################
+		# Temporal Training
+		if tensorboard_flag == 1:
+			temporal_model.fit(Train_X, Train_Y, batch_size=1, epochs=1, callbacks=[tbCallBack])
+		else:
+			temporal_model.fit(Train_X, Train_Y, batch_size=1, epochs=1)	
 
-	################### Formal Evaluation #########################
-	predict=temporal_model.predict_classes(features, batch_size=1)
+		temporal_model.save_weights(temporal_weights_name)
+
+		# Testing
+		predict = temporal_model.predict_classes(Test_X, batch_size = 1)
+
+	##############################################################
+
+
 	print (predict)
 	print (Test_Y_gt)	
 

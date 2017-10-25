@@ -32,8 +32,13 @@ def Read_Input_Images(inputDir, listOfIgnoredSamples, dB, resizedFlag, table, wo
 	r=w=spatial_size	
 	SubperdB=[]
 
+	# cross-checking parameter
+	
+	subperdb_id = []
+
 	for sub in sorted([infile for infile in os.listdir(inputDir)]):
-			VidperSub=[]        
+			VidperSub=[] 
+			vid_id = np.empty([0])       
 
 			for vid in sorted([inrfile for inrfile in os.listdir(inputDir+sub)]):
 				
@@ -58,6 +63,7 @@ def Read_Input_Images(inputDir, listOfIgnoredSamples, dB, resizedFlag, table, wo
 
 				for var in range(numFrame):
 					img=cv2.imread(imgList[var])
+					
 					[_,_,dim]=img.shape
 					
 					if dim ==3:
@@ -74,10 +80,14 @@ def Read_Input_Images(inputDir, listOfIgnoredSamples, dB, resizedFlag, table, wo
 					else:
 						FrameperVid=np.vstack((FrameperVid,img.flatten()))
 					
-				
+					vid_id = np.append(vid_id, imgList[var]) # <--cross-check
 				VidperSub.append(FrameperVid)       
-
+	
+			subperdb_id.append(vid_id)# <--cross-check
+			# print(subperdb_id[0])
 			SubperdB.append(VidperSub)	
+
+	# return SubperdB, vid_id, subperdb_id
 	return SubperdB
 
 def label_matching(workplace, dB, subjects, VidPerSubject):
@@ -125,21 +135,28 @@ def get_subfolders_num(path, IgnoredSamples_index):
 def data_loader_with_LOSO(subject, SubjectPerDatabase, y_labels, subjects):
 	Train_X = []
 	Train_Y = []
+	# print(sub_id[0])
+	# print(len(SubjectPerDatabase[0]))
 	Test_X = np.array(SubjectPerDatabase[subject])
+	# print(SubjectPerDatabase[subject])
 	Test_Y = np_utils.to_categorical(y_labels[subject], 5)
 	Test_Y_gt = y_labels[subject]
+	# print(sub_id[subject])
+	# print(vid_id)
 
+	# print(vid_id[subject])
+	# print("blank")	
 	########### Leave-One-Subject-Out ###############
 	if subject==0:
 		for i in range(1,subjects):
 			Train_X.append(SubjectPerDatabase[i])
 			Train_Y.append(y_labels[i])
-	   
+			# print(sub_id[i])
 	elif subject==subjects-1:
 		for i in range(subjects-1):
 			Train_X.append(SubjectPerDatabase[i])
 			Train_Y.append(y_labels[i])
-	   
+			# print(sub_id[i])
 	else:
 		for i in range(subjects):
 			if subject == i:
@@ -147,10 +164,11 @@ def data_loader_with_LOSO(subject, SubjectPerDatabase, y_labels, subjects):
 			else:
 				Train_X.append(SubjectPerDatabase[i])
 				Train_Y.append(y_labels[i])	
-
+				# print(sub_id[i])
 	##################################################
 
 	############ Conversion to numpy and stacking ##############
+	
 	Train_X=np.vstack(Train_X) 
 	Train_Y=np.hstack(Train_Y)
 	Train_Y=np_utils.to_categorical(Train_Y,5)
