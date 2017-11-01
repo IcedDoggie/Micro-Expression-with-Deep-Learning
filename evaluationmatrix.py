@@ -16,20 +16,20 @@ def fpr(matrix,n_exp):
         row=sum(matrix[index])
         # print(diag)
         # print(col)
-        if index ==0:
-            prec=diag/(col + denominator_De_zero )
+        if index == 0:
+            prec=diag/(col)
             # print(prec)
-            rec=diag/(row + denominator_De_zero)
+            rec=diag/(row)
 
             # print(rec)
         else:
-            prec = prec + diag/(col + denominator_De_zero)
+            prec = prec + diag/(col)
             # print(prec)
-            rec = rec + diag/(row + denominator_De_zero)
+            rec = rec + diag/(row)
             # print(rec)
 
-    precision=prec/(n_exp + denominator_De_zero)
-    recall=rec/(n_exp + denominator_De_zero)
+    precision=prec/(n_exp)
+    recall=rec/(n_exp)
     f1=2*precision*recall/(precision+recall)
 
         

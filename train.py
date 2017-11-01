@@ -21,14 +21,12 @@ from keras.utils import np_utils, plot_model
 from keras import metrics
 from keras import backend as K
 from keras.models import model_from_json
-from keras.layers import Dense, Dropout, Flatten, Activation
+from keras.layers import Dense, Dropout, Flatten, Activation, GlobalAveragePooling2D
 from keras.layers import Conv2D, MaxPooling2D
 from keras.preprocessing.sequence import pad_sequences
 from keras import optimizers
 from keras.applications.vgg16 import VGG16 as keras_vgg16
 import keras
-
-import theano
 
 from labelling import collectinglabel
 from reordering import readinput
@@ -39,11 +37,13 @@ from models import VGG_16
 
 ############## Path Preparation ######################
 dB = "CASME2_TIM"
+
 workplace = '/media/ice/OS/Datasets/' + dB + "/"
 inputDir = '/media/ice/OS/Datasets/' + dB + "/" + dB + "/" 
 ######################################################
 
 ############# Reading Labels from XCEL ########################
+
 wb=xlrd.open_workbook('/media/ice/OS/Datasets/CASME2_label_Ver_2.xls')
 ws=wb.sheet_by_index(0)    
 colm=ws.col_slice(colx=0,start_rowx=1,end_rowx=None)
@@ -54,6 +54,7 @@ colm=ws.col_slice(colx=6,start_rowx=1,end_rowx=None)
 expression=[str(x.value) for x in colm]
 table=np.transpose(np.array([np.array(iD),np.array(vidName),np.array(expression)],dtype=str))
 ###############################################################
+
 
 
 
@@ -81,12 +82,11 @@ for item in IgnoredSamples:
 
 ############## Variables ###################
 spatial_size = 224
-r=w=spatial_size
-resizedFlag=1
-# subjects=26
-subjects=2
-samples=246
-n_exp=5
+r = w = spatial_size
+subjects=26
+# subjects=2
+samples = 246
+n_exp = 5
 VidPerSubject = get_subfolders_num(inputDir, IgnoredSamples_index)
 timesteps_TIM = 10
 data_dim = r * w
@@ -94,11 +94,13 @@ pad_sequence = 10
 ############################################
 
 ############## Flags ####################
-train_spatial_flag = 0
+resizedFlag = 1
+train_spatial_flag = 1
 train_temporal_flag = 0
-svm_flag = 1
-finetuning_flag = 0
+svm_flag = 0
+finetuning_flag = 1
 tensorboard_flag = 0
+cam_visualizer_flag = 1
 #########################################
 
 ################## Clearing labels.txt ################
@@ -132,9 +134,8 @@ temporal_model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=
 ################# Pretrained Model ###################
 
 vgg_model = VGG_16('VGG_Face_Deep_16.h5')
-# keras_vgg = keras_vgg16(weights='imagenet')
+vgg_model_cam = vgg_model
 
-# vgg_model = VGG_16('imagenet')
 vgg_model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=[metrics.sparse_categorical_accuracy])
 plot_model(vgg_model, to_file='model.png', show_shapes=True)
 
@@ -153,7 +154,7 @@ if tensorboard_flag == 1:
 	tensorboard_path = "/home/ice/Documents/Micro-Expression/tensorboard/"
 
 tot_mat = np.zeros((n_exp,n_exp))
-spatial_weights_name = 'vgg_spatial_ID_under_dev.h5'
+spatial_weights_name = 'vgg_spatial_for_cam.h5'
 temporal_weights_name = 'temporal_ID_under_dev.h5'
 for sub in range(subjects):
 
@@ -205,6 +206,8 @@ for sub in range(subjects):
 	if finetuning_flag == 1:
 		for layer in vgg_model.layers[:33]:
 			layer.trainable = False
+		for layer in vgg_model_cam.layers[:33]:
+			layer.trainable = False
 
 	if train_spatial_flag == 1 and train_temporal_flag == 1:
 		# trains encoder until fc, train temporal
@@ -237,7 +240,7 @@ for sub in range(subjects):
 		predict = temporal_model.predict_classes(features, batch_size=1)
 
 
-	elif train_spatial_flag == 1 and train_temporal_flag == 0:
+	elif train_spatial_flag == 1 and train_temporal_flag == 0 and cam_visualizer_flag == 0:
 		# trains spatial module ONLY, no escape
 
 		# Spatial Training
@@ -250,8 +253,8 @@ for sub in range(subjects):
 		plot_model(vgg_model, to_file="spatial_module_ONLY.png", show_shapes=True)
 
 		# Testing
-		predict = vgg_model.predict(test_X, batch_size = 1)
-
+		predict = vgg_model.predict_classes(test_X, batch_size = 1)
+		Test_Y_gt = np.repeat(Test_Y_gt, 10, axis=0)
 
 	elif train_spatial_flag == 0 and train_temporal_flag == 1:
 		# trains temporal module ONLY.
@@ -280,6 +283,34 @@ for sub in range(subjects):
 
 
 		Test_Y_gt = np.repeat(Test_Y_gt, 10, axis=0)
+
+	elif train_spatial_flag == 1 and train_temporal_flag == 0 and cam_visualizer_flag == 1:
+		# trains spatial module & CAM ONLY
+		
+		# modify model for CAM
+		vgg_model_cam.pop()
+		vgg_model_cam.pop()		
+		vgg_model_cam.pop()
+		vgg_model_cam.pop()
+		vgg_model_cam.pop()
+		vgg_model_cam.pop()
+		vgg_model_cam.add(GlobalAveragePooling2D(data_format='channels_first'))
+		vgg_model_cam.add(Dense(5, activation = 'softmax'))
+		vgg_model_cam.compile(loss = 'categorical_crossentropy', optimizer = adam, metrics = [metrics.categorical_accuracy])
+
+
+		# Spatial Training
+		if tensorboard_flag == 1:
+			vgg_model_cam.fit(X, y, batch_size=1, epochs=1, shuffle=True, callbacks=[tbCallBack2])
+		else:
+			vgg_model_cam.fit(X, y, batch_size=1, epochs=1, shuffle=True)
+
+		vgg_model_cam.save_weights(spatial_weights_name)
+		plot_model(vgg_model_cam, to_file="spatial_module_CAM_ONLY.png", show_shapes=True)
+
+		# Testing
+		predict = vgg_model_cam.predict_classes(test_X, batch_size = 1)		
+
 
 	##############################################################
 

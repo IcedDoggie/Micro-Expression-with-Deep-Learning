@@ -27,6 +27,8 @@ from labelling import collectinglabel
 from reordering import readinput
 from evaluationmatrix import fpr
 
+
+
 def Read_Input_Images(inputDir, listOfIgnoredSamples, dB, resizedFlag, table, workplace, spatial_size):
 	# r=224; w=224
 	r=w=spatial_size	
@@ -58,8 +60,9 @@ def Read_Input_Images(inputDir, listOfIgnoredSamples, dB, resizedFlag, table, wo
 					img=cv2.imread(imgList[0])
 					[row,col,_l]=img.shape
 	##            ##read the label for each input video
-
+				
 				collectinglabel(table, sub[3:], vid, workplace+'Classification/', dB)
+
 
 				for var in range(numFrame):
 					img=cv2.imread(imgList[var])
@@ -168,7 +171,7 @@ def data_loader_with_LOSO(subject, SubjectPerDatabase, y_labels, subjects):
 	##################################################
 
 	############ Conversion to numpy and stacking ##############
-	
+	# print(Train_X)
 	Train_X=np.vstack(Train_X) 
 	Train_Y=np.hstack(Train_Y)
 	Train_Y=np_utils.to_categorical(Train_Y,5)
@@ -220,3 +223,22 @@ def record_scores(workplace, dB, ct, sub, order, tot_mat, n_exp, subjects):
 				thewriter.writerow('F1:' + str(f1))
 				thewriter.writerow('Precision:' + str(p))
 				thewriter.writerow('Recall:' + str(r))			
+
+def loading_smic_labels(root_db_path, dB):
+
+	label_filename = "SMIC_label.xlsx"
+
+	label_path = root_db_path + dB + "/" + label_filename
+	label_file = pd.read_excel(label_path)
+	label_file = label_file.dropna()
+
+	subject = label_file[['Subject']]
+	filename = label_file[['Filename']]
+	label = label_file[['Label']]
+	num_frames = label_file[['Frames']]
+
+	# print(label_file)
+	return subject, filename, label, num_frames
+
+
+def cam(model_path, img_path, output_path, )
