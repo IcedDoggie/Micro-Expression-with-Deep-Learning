@@ -11,7 +11,9 @@ from keras.utils import np_utils, plot_model
 
 def visualize_class_activation_map(model_path, img_path, output_path, run_count):
 
-	model = modify_model(model_path)
+	# model_seq = modify_model(model_path)
+	model_seq = VGG_16('vgg_spatial_cam.h5')
+	model = model_seq
 	original_img = cv2.imread(img_path, 1)
 	original_img = cv2.resize(original_img, (224, 224))
 	width, height, _ = original_img.shape
@@ -30,7 +32,9 @@ def visualize_class_activation_map(model_path, img_path, output_path, run_count)
 
 	[conv_outputs, predictions] = get_output([img])
 	predicted_class = np.argmax(predictions)
-
+	# predicted_class = model_seq.predict_classes(img)
+	print(predicted_class)
+	
 	if predicted_class == 0:
 		predicted_class = "happiness"
 	elif predicted_class == 1:
@@ -58,6 +62,9 @@ def visualize_class_activation_map(model_path, img_path, output_path, run_count)
 	
 	output_path = output_path + "_" + predicted_class + ".jpg"
 	cv2.imwrite(output_path, img)
+
+
+
 
 def get_args():
 	parser = argparse.ArgumentParser()
@@ -90,6 +97,7 @@ for root, dirnames, filenames in os.walk(img_path):
 		if first_run == 1:
 			first_run = 0
 			subject_path_array = dirnames
+
 		else:
 			img_path_array += [dirnames]
 	files = filenames
@@ -97,32 +105,42 @@ for root, dirnames, filenames in os.walk(img_path):
 counter = 0
 final_path = np.empty([0])
 output_path = np.empty([0])
+delete_path = np.empty([0])
 IgnoredSamples = ['sub09/EP13_02/','sub09/EP02_02f/','sub10/EP13_01/','sub17/EP15_01/',
 'sub17/EP15_03/','sub19/EP19_04/','sub24/EP10_03/','sub24/EP07_01/',
 'sub24/EP07_04f/','sub24/EP02_07/','sub26/EP15_01/']
 ignore_flag = 0
+
 for subject in subject_path_array:
 	path_array = img_path_array[counter]
 	for item in path_array:
 		for file in files:
 			
 			path_to_parse = img_path + str(subject) + '/' + str(item) + '/' + str(file)
+			delete_parse =  out_path + str(subject) + '/' + str(item) + '/' + str(file)
 			file = file[0:3]
 			out_parse = out_path + str(subject) + '/' + str(item) + '/' + str(file)
+			
 			for ignorance in IgnoredSamples:
 				if ignorance in path_to_parse:
 					ignore_flag = 1
 
-				if ignore_flag == 0:
-					final_path = np.append(final_path, path_to_parse)
-					output_path = np.append(output_path, out_parse)
-				else:
-					ignore_flag = 0
-
+			if ignore_flag == 0:
+				final_path = np.append(final_path, path_to_parse)
+				output_path = np.append(output_path, out_parse)
+				delete_path = np.append(delete_path, delete_parse)
+				
+			else:
+				ignore_flag = 0
+				
 
 
 	counter += 1
 
+# clear all the pictures inside each folder
+# print(delete_path)
+for item in delete_path:
+	os.remove(item)
 
 heatmap_count = 0
 run_count = 13
