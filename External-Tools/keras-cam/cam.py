@@ -11,29 +11,41 @@ from keras.utils import np_utils, plot_model
 
 def visualize_class_activation_map(model_path, img_path, output_path, run_count):
 
-	# model_seq = modify_model(model_path)
-	model_seq = VGG_16('vgg_spatial_cam.h5')
-	model = model_seq
+	model = model_path
+	model_seq = model_path
 	original_img = cv2.imread(img_path, 1)
 	original_img = cv2.resize(original_img, (224, 224))
+	# print(original_img.shape)
 	width, height, _ = original_img.shape
-
+	img = original_img.reshape(1, 3, width, height)
 	# Reshape to the network input shape (3, w, h).
-	img = np.array([np.transpose(np.float32(original_img), (2, 0, 1))])
+	# img = np.array([np.transpose(np.float32(original_img), (2, 0, 1))])
 
 	# Get the 512 input weights to the softmax.
 	model = Model(inputs=model.input, outputs=model.layers[32].output)
 	plot_model(model, to_file="vgg_original.png", show_shapes=True)
 	class_weights = model.layers[-1].get_weights()[0]
-	layer_target = "conv2d_" + str(run_count)
-	final_conv_layer = get_output_layer(model, layer_target)
-	get_output = K.function([model.layers[0].input],
-	[final_conv_layer.output, model.layers[-1].output])
+	class_weights2 = model.layers[-1].get_weights()[1]
+	# print(class_weights.shape)
+	# print(class_weights2)
 
-	[conv_outputs, predictions] = get_output([img])
+	# layer_target = "conv2d_" + str(run_count)
+	# layer_target = "conv2d_13"
+	# final_conv_layer = get_output_layer(model, layer_target)
+	# print(final_conv_layer.shape)
+	# get_output = K.function([model.layers[0].input],
+	# [final_conv_layer.output, model.layers[-1].output])
+	final_conv = model.layers[29]
+	get_output = K.function([model.layers[0].input], [final_conv.output, model.layers[-1].output])
+	[conv_outputs, predictions] = get_output([img])	
+	
+
+	# [conv_outputs, predictions] = get_output([img])
+	# print(predictions)
 	predicted_class = np.argmax(predictions)
-	# predicted_class = model_seq.predict_classes(img)
+	predicted_class_crosscheck = model_seq.predict_classes(img)
 	print(predicted_class)
+	print(predicted_class_crosscheck)
 	
 	if predicted_class == 0:
 		predicted_class = "happiness"
@@ -47,17 +59,18 @@ def visualize_class_activation_map(model_path, img_path, output_path, run_count)
 		predicted_class = "others"
 
 	conv_outputs = conv_outputs[0, :, :, :]
+	# print(conv_outputs.shape)
 
-	# print(predictions)
 	# Create the class activation map.
 	cam = np.zeros(dtype = np.float32, shape = conv_outputs.shape[1:3])
 	for i, w in enumerate(class_weights[:, 1]):
+		# print(w)
 		cam += w * conv_outputs[i, :, :]
 
 	cam /= np.max(cam)
 	cam = cv2.resize(cam, (height, width))
 	heatmap = cv2.applyColorMap(np.uint8(255*cam), cv2.COLORMAP_JET)
-	heatmap[np.where(cam < 0.2)] = 0
+	heatmap[np.where(cam < 0.2)] = 0 # tunable
 	img = heatmap*0.5 + original_img
 	
 	output_path = output_path + "_" + predicted_class + ".jpg"
@@ -144,9 +157,11 @@ for item in delete_path:
 
 heatmap_count = 0
 run_count = 13
+model = VGG_16('vgg_spatial_cam.h5')
+
 for item in final_path:
 	heatmap_path = output_path[heatmap_count]
-	visualize_class_activation_map('./vgg_spatial_ID_12.h5', item, heatmap_path, run_count)
+	visualize_class_activation_map(model, item, heatmap_path, run_count)
 	run_count += 13
 	heatmap_count += 1
 	print(str(heatmap_count) + "/2460 processed" + "\n")
