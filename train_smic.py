@@ -131,6 +131,8 @@ tot_mat = np.zeros((n_exp,n_exp))
 spatial_weights_name = 'vgg_spatial_ID_under_dev_smic.h5'
 temporal_weights_name = 'temporal_ID_under_dev_smic.h5'
 for sub in range(subjects):
+	vgg_model = VGG_16('VGG_Face_Deep_16.h5')
+	vgg_model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=[metrics.sparse_categorical_accuracy])
 
 	############ for tensorboard ###############
 	if tensorboard_flag == 1:

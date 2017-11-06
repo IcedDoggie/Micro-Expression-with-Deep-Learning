@@ -157,6 +157,8 @@ tot_mat = np.zeros((n_exp,n_exp))
 spatial_weights_name = 'vgg_spatial_for_cam.h5'
 temporal_weights_name = 'temporal_ID_under_dev.h5'
 for sub in range(subjects):
+	vgg_model = VGG_16('VGG_Face_Deep_16.h5')
+	vgg_model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=[metrics.sparse_categorical_accuracy])
 
 	############ for tensorboard ###############
 	if tensorboard_flag == 1:
@@ -280,7 +282,6 @@ for sub in range(subjects):
 
 		test_X = vgg_model.predict(test_X, batch_size=1)
 		predict = svm_classifier.predict(test_X)
-
 
 		Test_Y_gt = np.repeat(Test_Y_gt, 10, axis=0)
 
