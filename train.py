@@ -26,6 +26,7 @@ from keras.layers import Conv2D, MaxPooling2D
 from keras.preprocessing.sequence import pad_sequences
 from keras import optimizers
 from keras.applications.vgg16 import VGG16 as keras_vgg16
+from keras.preprocessing.image import ImageDataGenerator
 import keras
 
 from labelling import collectinglabel
@@ -100,7 +101,7 @@ train_temporal_flag = 0
 svm_flag = 0
 finetuning_flag = 1
 tensorboard_flag = 0
-cam_visualizer_flag = 1
+cam_visualizer_flag = 0
 #########################################
 
 ################## Clearing labels.txt ################
@@ -139,16 +140,21 @@ vgg_model_cam = vgg_model
 vgg_model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=[metrics.sparse_categorical_accuracy])
 plot_model(vgg_model, to_file='model.png', show_shapes=True)
 
-svm_classifier = SVC(kernel='linear', C=1)
+
 
 ######################################################
+
+########### Image Data Generator ##############
+image_generator = ImageDataGenerator(
+	zca_whitening = True)
+###############################################
 
 ########### Training Process ############
 # Todo:
 # 1) LOSO (done)
 # 2) call model (done)
-# 3) saving model architecture
-# 4) Saving Checkpoint
+# 3) saving model architecture 
+# 4) Saving Checkpoint (done)
 # 5) make prediction (done)
 if tensorboard_flag == 1:
 	tensorboard_path = "/home/ice/Documents/Micro-Expression/tensorboard/"
@@ -156,10 +162,23 @@ if tensorboard_flag == 1:
 tot_mat = np.zeros((n_exp,n_exp))
 spatial_weights_name = 'vgg_spatial_for_cam.h5'
 temporal_weights_name = 'temporal_ID_under_dev.h5'
+
+# model checkpoint
+spatial_weights_name = 'vgg_spatial_17a_casme2_'
+temporal_weights_name = 'temporal_ID_16_casme2_'
+
+# model checkpoint
+root = "/home/viprlab/Documents/Micro-Expression/" + spatial_weights_name + "weights.{epoch:02d}-{val_loss:.2f}.hdf5"
+root_temporal = "/home/viprlab/Documents/Micro-Expression/" + temporal_weights_name + "weights.{epoch:02d}-{val_loss:.2f}.hdf5"
+
+model_checkpoint = keras.callbacks.ModelCheckpoint(root, monitor='loss', save_best_only=True, save_weights_only=True)
+model_checkpoint_temporal = keras.callbacks.ModelCheckpoint(root_temporal, monitor='loss', save_best_only=True, save_weights_only=True)
+
 for sub in range(subjects):
 	vgg_model = VGG_16('VGG_Face_Deep_16.h5')
 	vgg_model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=[metrics.sparse_categorical_accuracy])
-
+	
+	svm_classifier = SVC(kernel='linear', C=1)
 	############ for tensorboard ###############
 	if tensorboard_flag == 1:
 		cat_path = tensorboard_path + str(sub) + "/"
@@ -218,9 +237,9 @@ for sub in range(subjects):
 		if tensorboard_flag == 1:
 			vgg_model.fit(X, y, batch_size=1, epochs=1, shuffle=True, callbacks=[tbCallBack2])
 		else:
-			vgg_model.fit(X, y, batch_size=1, epochs=1, shuffle=True)
+			vgg_model.fit(X, y, batch_size=1, epochs=1, shuffle=True, callbacks=[model_checkpoint])
 
-		vgg_model.save_weights(spatial_weights_name)
+		# vgg_model.save_weights(spatial_weights_name)
 		model = Model(inputs=vgg_model.input, outputs=vgg_model.layers[35].output)
 		plot_model(model, to_file="spatial_module_FULL_TRAINING.png", show_shapes=True)	
 
@@ -232,9 +251,9 @@ for sub in range(subjects):
 		if tensorboard_flag == 1:
 			temporal_model.fit(features, Train_Y, batch_size=1, epochs=1, callbacks=[tbCallBack])
 		else:
-			temporal_model.fit(features, Train_Y, batch_size=1, epochs=1)	
+			temporal_model.fit(features, Train_Y, batch_size=1, epochs=1, callbacks=[model_checkpoint_temporal])	
 
-		temporal_model.save_weights(temporal_weights_name)
+		# temporal_model.save_weights(temporal_weights_name)
 
 		# Testing
 		output = model.predict(test_X, batch_size = 1)
@@ -249,9 +268,9 @@ for sub in range(subjects):
 		if tensorboard_flag == 1:
 			vgg_model.fit(X, y, batch_size=1, epochs=1, shuffle=True, callbacks=[tbCallBack2])
 		else:
-			vgg_model.fit(X, y, batch_size=1, epochs=1, shuffle=True)
+			vgg_model.fit(X, y, batch_size=1, epochs=1, shuffle=True, callbacks=[model_checkpoint])
 
-		vgg_model.save_weights(spatial_weights_name)
+		# vgg_model.save_weights(spatial_weights_name)
 		plot_model(vgg_model, to_file="spatial_module_ONLY.png", show_shapes=True)
 
 		# Testing
@@ -265,9 +284,9 @@ for sub in range(subjects):
 		if tensorboard_flag == 1:
 			temporal_model.fit(Train_X, Train_Y, batch_size=1, epochs=1, callbacks=[tbCallBack])
 		else:
-			temporal_model.fit(Train_X, Train_Y, batch_size=1, epochs=1)	
+			temporal_model.fit(Train_X, Train_Y, batch_size=1, epochs=1, callbacks=[model_checkpoint_temporal])	
 
-		temporal_model.save_weights(temporal_weights_name)
+		# temporal_model.save_weights(temporal_weights_name)
 
 		# Testing
 		predict = temporal_model.predict_classes(Test_X, batch_size = 1)
@@ -304,9 +323,9 @@ for sub in range(subjects):
 		if tensorboard_flag == 1:
 			vgg_model_cam.fit(X, y, batch_size=1, epochs=1, shuffle=True, callbacks=[tbCallBack2])
 		else:
-			vgg_model_cam.fit(X, y, batch_size=1, epochs=1, shuffle=True)
+			vgg_model_cam.fit(X, y, batch_size=1, epochs=1, shuffle=True, callbacks=[model_checkpoint])
 
-		vgg_model_cam.save_weights(spatial_weights_name)
+		# vgg_model_cam.save_weights(spatial_weights_name)
 		plot_model(vgg_model_cam, to_file="spatial_module_CAM_ONLY.png", show_shapes=True)
 
 		# Testing
