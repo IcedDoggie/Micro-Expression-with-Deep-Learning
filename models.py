@@ -16,7 +16,7 @@ import scipy.io as sio
 from keras.models import Sequential
 from keras.layers.core import Flatten, Dense, Dropout
 from keras.layers.convolutional import Conv2D, MaxPooling2D, ZeroPadding2D
-from keras.layers import LSTM
+from keras.layers import LSTM, GlobalAveragePooling2D
 from keras.optimizers import SGD
 import keras.backend as K
 from keras.callbacks import Callback
@@ -130,4 +130,65 @@ def VGG_16_test(weights_path=None):
 	return model
 
 
-	
+def VGG_16_cam(weights_path=None):
+	model = Sequential()
+	model.add(ZeroPadding2D((1,1), input_shape=(3, 224, 224)))
+	model.add(Conv2D(64, (3, 3), activation='relu'))
+	model.add(ZeroPadding2D((1,1)))
+	model.add(Conv2D(64, (3, 3), activation='relu'))
+	model.add(MaxPooling2D((2,2), strides=(2,2)))
+
+	model.add(ZeroPadding2D((1,1)))
+	model.add(Conv2D(128, (3, 3), activation='relu'))
+	model.add(ZeroPadding2D((1,1)))
+	model.add(Conv2D(128, (3, 3), activation='relu'))
+	model.add(MaxPooling2D((2,2), strides=(2,2)))
+
+	model.add(ZeroPadding2D((1,1)))
+	model.add(Conv2D(256, (3, 3), activation='relu'))
+	model.add(ZeroPadding2D((1,1)))
+	model.add(Conv2D(256, (3, 3), activation='relu'))
+	model.add(ZeroPadding2D((1,1)))
+	model.add(Conv2D(256, (3, 3), activation='relu'))
+	model.add(MaxPooling2D((2,2), strides=(2,2)))
+
+	model.add(ZeroPadding2D((1,1)))
+	model.add(Conv2D(512, (3, 3), activation='relu'))
+	model.add(ZeroPadding2D((1,1)))
+	model.add(Conv2D(512, (3, 3), activation='relu'))
+	model.add(ZeroPadding2D((1,1)))
+	model.add(Conv2D(512, (3, 3), activation='relu'))
+	model.add(MaxPooling2D((2,2), strides=(2,2)))
+
+	model.add(ZeroPadding2D((1,1)))
+	model.add(Conv2D(512, (3, 3), activation='relu'))
+	model.add(ZeroPadding2D((1,1)))
+	model.add(Conv2D(512, (3, 3), activation='relu'))
+	model.add(ZeroPadding2D((1,1)))
+	model.add(Conv2D(512, (3, 3), activation='relu'))
+	model.add(MaxPooling2D((2,2), strides=(2,2)))
+
+
+	model.add(GlobalAveragePooling2D(data_format='channels_first'))
+
+	model.add(Dense(5, activation='softmax'))
+
+	if weights_path:
+		model.load_weights(weights_path)
+
+	return model
+
+
+
+def temporal_module(data_dim, weights_path=None):
+	model = Sequential()
+	model.add(LSTM(2622, return_sequences=True, input_shape=(10, data_dim)))
+	model.add(LSTM(1000, return_sequences=False))
+	model.add(Dense(128, activation='relu'))
+	model.add(Dense(5, activation='sigmoid'))
+
+	if weights_path:
+		model.load_weights(weights_path)
+
+
+	return model	

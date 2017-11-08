@@ -33,65 +33,50 @@ from labelling import collectinglabel
 from reordering import readinput
 from evaluationmatrix import fpr
 from utilities import Read_Input_Images, get_subfolders_num, data_loader_with_LOSO, label_matching, duplicate_channel
-from utilities import record_scores
-from models import VGG_16
+from utilities import record_scores, loading_smic_table, loading_casme_table, ignore_casme_samples
+from models import VGG_16, temporal_module
 
 
-def train_casme2(batch_size, spatial_epochs, temporal_epochs, train_id):
+def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB):
 	############## Path Preparation ######################
-	dB = "CASME2_TIM"
-
+	root_db_path = "/media/ice/OS/Datasets/"
 	workplace = '/media/ice/OS/Datasets/' + dB + "/"
 	inputDir = '/media/ice/OS/Datasets/' + dB + "/" + dB + "/" 
 	######################################################
 
-	############# Reading Labels from XCEL ########################
+	if dB == 'CASME2_TIM':
+		table = loading_casme_table('/media/ice/OS/Datasets/CASME2_label_Ver_2.xls')
+		listOfIgnoredSamples, IgnoredSamples_index = ignore_casme_samples(inputDir)
 
-	wb=xlrd.open_workbook('/media/ice/OS/Datasets/CASME2_label_Ver_2.xls')
-	ws=wb.sheet_by_index(0)    
-	colm=ws.col_slice(colx=0,start_rowx=1,end_rowx=None)
-	iD=[str(x.value) for x in colm]
-	colm=ws.col_slice(colx=1,start_rowx=1,end_rowx=None)
-	vidName=[str(x.value) for x in colm]
-	colm=ws.col_slice(colx=6,start_rowx=1,end_rowx=None)
-	expression=[str(x.value) for x in colm]
-	table=np.transpose(np.array([np.array(iD),np.array(vidName),np.array(expression)],dtype=str))
-	###############################################################
+		############## Variables ###################
+		spatial_size = r = w = 224
+		subjects=26
+		samples = 246
+		n_exp = 5
+		VidPerSubject = get_subfolders_num(inputDir, IgnoredSamples_index)
+		timesteps_TIM = 10
+		data_dim = r * w
+		pad_sequence = 10
+		############################################		
 
-	###################### Samples to-be ignored ##########################
-	# ignored due to:
-	# 1) no matching label.
-	# 2) fear, sadness are excluded due to too little data, see CASME2 paper for more
-	IgnoredSamples = ['sub09/EP13_02/','sub09/EP02_02f/','sub10/EP13_01/','sub17/EP15_01/',
-						'sub17/EP15_03/','sub19/EP19_04/','sub24/EP10_03/','sub24/EP07_01/',
-						'sub24/EP07_04f/','sub24/EP02_07/','sub26/EP15_01/']
-	listOfIgnoredSamples=[]
-	for s in range(len(IgnoredSamples)):
-		if s==0:
-			listOfIgnoredSamples=[inputDir+IgnoredSamples[s]]
-		else:
-			listOfIgnoredSamples.append(inputDir+IgnoredSamples[s])
-	### Get index of samples to be ignored in terms of subject id ###
-	IgnoredSamples_index = np.empty([0])
-	for item in IgnoredSamples:
-		item = item.split('sub', 1)[1]
-		item = int(item.split('/', 1)[0]) - 1 
-		IgnoredSamples_index = np.append(IgnoredSamples_index, item)
+		os.remove(workplace + "Classification/CASME2_TIM_label.txt")
 
-	#######################################################################
+	elif dB == 'SMIC_TIM10':
+		table = loading_smic_table(root_db_path, dB)
+		listOfIgnoredSamples = []
+		IgnoredSamples_index = np.empty([0])
 
-	############## Variables ###################
-	spatial_size = 224
-	r = w = spatial_size
-	subjects=26
-	# subjects=2
-	samples = 246
-	n_exp = 5
-	VidPerSubject = get_subfolders_num(inputDir, IgnoredSamples_index)
-	timesteps_TIM = 10
-	data_dim = r * w
-	pad_sequence = 10
-	############################################
+		################# Variables #############################
+		spatial_size = r = w = 224
+		subjects = 16
+		samples = 164
+		n_exp = 3
+		VidPerSubject = get_subfolders_num(inputDir, IgnoredSamples_index)
+		timesteps_TIM = 10
+		data_dim = r * w
+		pad_sequence = 10
+		#########################################################
+
 
 	############## Flags ####################
 	resizedFlag = 1
@@ -104,7 +89,7 @@ def train_casme2(batch_size, spatial_epochs, temporal_epochs, train_id):
 	#########################################
 
 	################## Clearing labels.txt ################
-	os.remove(workplace + "Classification/CASME2_TIM_label.txt")
+	
 	#######################################################
 
 	############ Reading Images and Labels ################
@@ -123,12 +108,10 @@ def train_casme2(batch_size, spatial_epochs, temporal_epochs, train_id):
 		data_dim = spatial_size * spatial_size
 	else:
 		data_dim = 4096
-	temporal_model = Sequential()
-	temporal_model.add(LSTM(2622, return_sequences=True, input_shape=(10, data_dim)))
-	temporal_model.add(LSTM(1000, return_sequences=False))
-	temporal_model.add(Dense(128, activation='relu'))
-	temporal_model.add(Dense(5, activation='sigmoid'))
+
+	temporal_model = temporal_module(data_dim=data_dim)
 	temporal_model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=[metrics.categorical_accuracy])
+
 	#########################################
 
 	################# Pretrained Model ###################

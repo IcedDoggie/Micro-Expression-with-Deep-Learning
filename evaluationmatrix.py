@@ -17,15 +17,15 @@ def fpr(matrix,n_exp):
         # print(diag)
         # print(col)
         if index == 0:
-            prec=diag/(col)
-            # print(prec)
-            rec=diag/(row)
+            prec=diag/(col + denominator_De_zero)
+            # print(prec) 
+            rec=diag/(row + denominator_De_zero)
 
             # print(rec)
         else:
-            prec = prec + diag/(col)
+            prec = prec + diag/(col + denominator_De_zero) 
             # print(prec)
-            rec = rec + diag/(row)
+            rec = rec + diag/(row + denominator_De_zero)
             # print(rec)
 
     precision=prec/(n_exp)

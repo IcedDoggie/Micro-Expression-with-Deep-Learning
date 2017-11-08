@@ -241,4 +241,45 @@ def loading_smic_labels(root_db_path, dB):
 	return subject, filename, label, num_frames
 
 
-def cam(model_path, img_path, output_path, )
+def loading_casme_table(xcel_path):
+	wb=xlrd.open_workbook(xcel_path)
+	ws=wb.sheet_by_index(0)    
+	colm=ws.col_slice(colx=0,start_rowx=1,end_rowx=None)
+	iD=[str(x.value) for x in colm]
+	colm=ws.col_slice(colx=1,start_rowx=1,end_rowx=None)
+	vidName=[str(x.value) for x in colm]
+	colm=ws.col_slice(colx=6,start_rowx=1,end_rowx=None)
+	expression=[str(x.value) for x in colm]
+	table=np.transpose(np.array([np.array(iD),np.array(vidName),np.array(expression)],dtype=str))	
+	return table
+
+def loading_smic_table(root_db_path, dB):
+	subject, filename, label, num_frames = loading_smic_labels(root_db_path, dB)
+	filename = filename.as_matrix()
+	label = label.as_matrix()
+
+	table = np.transpose( np.array( [filename, label] ) )	
+	return table	
+
+def ignore_casme_samples(inputDir):
+	# ignored due to:
+	# 1) no matching label.
+	# 2) fear, sadness are excluded due to too little data, see CASME2 paper for more
+	IgnoredSamples = ['sub09/EP13_02/','sub09/EP02_02f/','sub10/EP13_01/','sub17/EP15_01/',
+						'sub17/EP15_03/','sub19/EP19_04/','sub24/EP10_03/','sub24/EP07_01/',
+						'sub24/EP07_04f/','sub24/EP02_07/','sub26/EP15_01/']
+	listOfIgnoredSamples=[]
+	for s in range(len(IgnoredSamples)):
+		if s==0:
+			listOfIgnoredSamples=[inputDir+IgnoredSamples[s]]
+		else:
+			listOfIgnoredSamples.append(inputDir+IgnoredSamples[s])
+	### Get index of samples to be ignored in terms of subject id ###
+	IgnoredSamples_index = np.empty([0])
+	for item in IgnoredSamples:
+		item = item.split('sub', 1)[1]
+		item = int(item.split('/', 1)[0]) - 1 
+		IgnoredSamples_index = np.append(IgnoredSamples_index, item)
+
+
+	return listOfIgnoredSamples, IgnoredSamples_index
