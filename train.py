@@ -34,7 +34,7 @@ from reordering import readinput
 from evaluationmatrix import fpr
 from utilities import Read_Input_Images, get_subfolders_num, data_loader_with_LOSO, label_matching, duplicate_channel
 from utilities import record_scores, loading_smic_table, loading_casme_table, ignore_casme_samples
-from models import VGG_16, temporal_module
+from models import VGG_16, temporal_module, modify_cam
 
 
 def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB):
@@ -88,9 +88,7 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB):
 	cam_visualizer_flag = 0
 	#########################################
 
-	################## Clearing labels.txt ################
-	
-	#######################################################
+
 
 	############ Reading Images and Labels ################
 	SubperdB = Read_Input_Images(inputDir, listOfIgnoredSamples, dB, resizedFlag, table, workplace, spatial_size)
@@ -115,7 +113,6 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB):
 	#########################################
 
 	################# Pretrained Model ###################
-	vgg_model_cam = VGG_16('VGG_Face_Deep_16.h5')
 	######################################################
 
 	########### Image Data Generator ##############
@@ -139,15 +136,16 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB):
 	if tensorboard_flag == 1:
 		tensorboard_path = "/home/ice/Documents/Micro-Expression/tensorboard/"
 
+	# total confusion matrix to be used in the computation of f1 score
 	tot_mat = np.zeros((n_exp,n_exp))
 
 	# model checkpoint
-	spatial_weights_name = 'vgg_spatial_'+ str(train_id) + 'a_casme2_'
+	spatial_weights_name = 'vgg_spatial_'+ str(train_id) + '_casme2_'
 	temporal_weights_name = 'temporal_ID_' + str(train_id) + '_casme2_'
 
 	# model checkpoint
-	root = "/home/viprlab/Documents/Micro-Expression/" + spatial_weights_name + "weights.{epoch:02d}-{loss:.2f}.hdf5"
-	root_temporal = "/home/viprlab/Documents/Micro-Expression/" + temporal_weights_name + "weights.{epoch:02d}-{loss:.2f}.hdf5"
+	root = "/home/ice/Documents/Micro-Expression/" + spatial_weights_name + "weights.{epoch:02d}-{loss:.2f}.hdf5"
+	root_temporal = "/home/ice/Documents/Micro-Expression/" + temporal_weights_name + "weights.{epoch:02d}-{loss:.2f}.hdf5"
 
 	model_checkpoint = keras.callbacks.ModelCheckpoint(root, monitor='loss', save_best_only=True, save_weights_only=True)
 	model_checkpoint_temporal = keras.callbacks.ModelCheckpoint(root_temporal, monitor='loss', save_best_only=True, save_weights_only=True)
@@ -155,6 +153,9 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB):
 	for sub in range(subjects):
 		vgg_model = VGG_16('VGG_Face_Deep_16.h5')
 		vgg_model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=[metrics.sparse_categorical_accuracy])
+
+		vgg_model_cam = VGG_16('VGG_Face_Deep_16.h5')
+
 		
 		svm_classifier = SVC(kernel='linear', C=1)
 		############ for tensorboard ###############
@@ -217,7 +218,7 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB):
 			else:
 				vgg_model.fit(X, y, batch_size=batch_size, epochs=spatial_epochs, shuffle=True, callbacks=[model_checkpoint])
 
-			# vgg_model.save_weights(spatial_weights_name)
+			vgg_model.save_weights(spatial_weights_name + str(sub) + ".h5")
 			model = Model(inputs=vgg_model.input, outputs=vgg_model.layers[35].output)
 			plot_model(model, to_file="spatial_module_FULL_TRAINING.png", show_shapes=True)	
 
@@ -231,7 +232,7 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB):
 			else:
 				temporal_model.fit(features, Train_Y, batch_size=batch_size, epochs=temporal_epochs, callbacks=[model_checkpoint_temporal])	
 
-			# temporal_model.save_weights(temporal_weights_name)
+			temporal_model.save_weights(temporal_weights_name + str(sub) + ".h5")
 
 			# Testing
 			output = model.predict(test_X, batch_size = batch_size)
@@ -251,9 +252,9 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB):
 			if tensorboard_flag == 1:
 				vgg_model.fit(X, y, batch_size=batch_size, epochs=spatial_epochs, shuffle=True, callbacks=[tbCallBack2])
 			else:
-				vgg_model.fit(X, y, batch_size=batch_size, epochs=spatial_epochs, shuffle=True, callbacks=[model_checkpoint])
+				vgg_model.fit(X, y, batch_size=batch_size, epochs=spatial_epochs, shuffle=True)
 
-			# vgg_model.save_weights(spatial_weights_name)
+			vgg_model.save_weights(spatial_weights_name + str(sub) + ".h5")
 			plot_model(vgg_model, to_file="spatial_module_ONLY.png", show_shapes=True)
 
 			# Testing
@@ -267,9 +268,9 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB):
 			if tensorboard_flag == 1:
 				temporal_model.fit(Train_X, Train_Y, batch_size=batch_size, epochs=temporal_epochs, callbacks=[tbCallBack])
 			else:
-				temporal_model.fit(Train_X, Train_Y, batch_size=batch_size, epochs=temporal_epochs, callbacks=[model_checkpoint_temporal])	
+				temporal_model.fit(Train_X, Train_Y, batch_size=batch_size, epochs=temporal_epochs)	
 
-			# temporal_model.save_weights(temporal_weights_name)
+			temporal_model.save_weights(temporal_weights_name + str(sub) + ".h5")
 
 			# Testing
 			predict = temporal_model.predict_classes(Test_X, batch_size = batch_size)
@@ -291,14 +292,7 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB):
 			# trains spatial module & CAM ONLY
 			
 			# modify model for CAM
-			vgg_model_cam.pop()
-			vgg_model_cam.pop()		
-			vgg_model_cam.pop()
-			vgg_model_cam.pop()
-			vgg_model_cam.pop()
-			vgg_model_cam.pop()
-			vgg_model_cam.add(GlobalAveragePooling2D(data_format='channels_first'))
-			vgg_model_cam.add(Dense(5, activation = 'softmax'))
+			vgg_model_cam = modify_cam(vgg_model_cam)
 			vgg_model_cam.compile(loss = 'categorical_crossentropy', optimizer = adam, metrics = [metrics.categorical_accuracy])
 
 
@@ -306,9 +300,9 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB):
 			if tensorboard_flag == 1:
 				vgg_model_cam.fit(X, y, batch_size=batch_size, epochs=spatial_epochs, shuffle=True, callbacks=[tbCallBack2])
 			else:
-				vgg_model_cam.fit(X, y, batch_size=batch_size, epochs=spatial_epochs, shuffle=True, callbacks=[model_checkpoint])
+				vgg_model_cam.fit(X, y, batch_size=batch_size, epochs=spatial_epochs, shuffle=True)
 
-			# vgg_model_cam.save_weights(spatial_weights_name)
+			vgg_model_cam.save_weights(spatial_weights_name + str(sub) + ".h5")
 			plot_model(vgg_model_cam, to_file="spatial_module_CAM_ONLY.png", show_shapes=True)
 
 			# Testing
@@ -340,7 +334,7 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB):
 		[f1,precision,recall] = fpr(tot_mat,n_exp)
 
 
-		file = open(workplace+'Classification/'+ 'Result/'+dB+'/f1.txt', 'a')
+		file = open(workplace+'Classification/'+ 'Result/'+dB+'/f1_' + str(train_id) +  '.txt', 'a')
 		file.write(str(f1) + "\n")
 		file.close()
 		##################################################################
