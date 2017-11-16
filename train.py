@@ -190,10 +190,10 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_siz
 
 	for sub in range(subjects):
 		############### Reinitialization & weights reset of models ########################
-		vgg_model = VGG_16('VGG_Face_Deep_16.h5', spatial_size)
+		vgg_model = VGG_16(spatial_size = spatial_size, weights_path='VGG_Face_Deep_16.h5')
 		vgg_model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=[metrics.sparse_categorical_accuracy])
 
-		vgg_model_cam = VGG_16('VGG_Face_Deep_16.h5', spatial_size)
+		vgg_model_cam = VGG_16(spatial_size=spatial_size, weights_path='VGG_Face_Deep_16.h5')
 
 		temporal_model = temporal_module(data_dim=data_dim, timesteps_TIM=timesteps_TIM)
 		temporal_model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=[metrics.categorical_accuracy])
