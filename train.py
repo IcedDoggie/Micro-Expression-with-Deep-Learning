@@ -44,7 +44,7 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_siz
 	######################################################
 
 	if dB == 'CASME2_TIM':
-		table = loading_casme_table(root_db_path + 'CASME2_label_Ver_2.xls')
+		table = loading_casme_table(workplace + 'CASME2_label_Ver_2.xls')
 		listOfIgnoredSamples, IgnoredSamples_index = ignore_casme_samples(inputDir)
 
 		############## Variables ###################
@@ -56,12 +56,13 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_siz
 		timesteps_TIM = 10
 		data_dim = r * w
 		pad_sequence = 10
+		channel = 1
 		############################################		
 
 		os.remove(workplace + "Classification/CASME2_TIM_label.txt")
 
 	elif dB == 'CASME2_Optical':
-		table = loading_casme_table(root_db_path + 'CASME2_label_Ver_2.xls')
+		table = loading_casme_table(workplace + 'CASME2_label_Ver_2.xls')
 		listOfIgnoredSamples, IgnoredSamples_index = ignore_casme_samples(inputDir)
 
 		############## Variables ###################
@@ -73,13 +74,14 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_siz
 		timesteps_TIM = 9
 		data_dim = r * w
 		pad_sequence = 9
+		channel = 3
 		############################################		
 
 		os.remove(workplace + "Classification/CASME2_TIM_label.txt")
 
 	elif dB == 'CASME2_RGB':
 		# print(inputDir)
-		table = loading_casme_table('/media/viprlab/01D31FFEF66D5170/CASME2_RGB/CASME2_label_Ver_2.xls')
+		table = loading_casme_table(workplace + 'CASME2_RGB/CASME2_label_Ver_2.xls')
 		listOfIgnoredSamples, IgnoredSamples_index = ignore_casmergb_samples(inputDir)
 		############## Variables ###################
 		r = w = spatial_size
@@ -90,6 +92,7 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_siz
 		timesteps_TIM = 10
 		data_dim = r * w 
 		pad_sequence = 10
+		channel = 3
 		############################################
 
 	elif dB == 'SMIC_TIM10':
@@ -106,6 +109,7 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_siz
 		timesteps_TIM = 10
 		data_dim = r * w
 		pad_sequence = 10
+		channel = 1
 		#########################################################
 
 
@@ -219,30 +223,15 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_siz
 		Train_X, Train_Y, Test_X, Test_Y, Test_Y_gt = data_loader_with_LOSO(sub, SubperdB, labelperSub, subjects)
 
 		# Rearrange Training labels into a vector of images, breaking sequence
-		if dB == "CASME2_TIM" or dB == 'SMIC_TIM10':
-			Train_X_spatial = Train_X.reshape(Train_X.shape[0]*10, r, w, 1)
-			Test_X_spatial = Test_X.reshape(Test_X.shape[0]* 10, r, w, 1)
-			# Duplicate channel of input image
-			Train_X_spatial = duplicate_channel(Train_X_spatial)
-			Test_X_spatial = duplicate_channel(Test_X_spatial)
-			# Extend Y labels 10 fold, so that all images have labels
-			Train_Y_spatial = np.repeat(Train_Y, 10, axis=0)
-			Test_Y_spatial = np.repeat(Test_Y, 10, axis=0)			
+		Train_X_spatial = Train_X.reshape(Train_X.shape[0]*timesteps_TIM, r, w, channel)
+		Test_X_spatial = Test_X.reshape(Test_X.shape[0]* timesteps_TIM, r, w, channel)
+		# Duplicate channel of input image
+		Train_X_spatial = duplicate_channel(Train_X_spatial)
+		Test_X_spatial = duplicate_channel(Test_X_spatial)
+		# Extend Y labels 10 fold, so that all images have labels
+		Train_Y_spatial = np.repeat(Train_Y, timesteps_TIM, axis=0)
+		Test_Y_spatial = np.repeat(Test_Y, timesteps_TIM, axis=0)		
 
-		elif dB == 'CASME2_Optical':
-			Train_X_spatial = Train_X.reshape(Train_X.shape[0]*9, r, w, 3)
-			Test_X_spatial = Test_X.reshape(Test_X.shape[0]* 9, r, w, 3)
-			# Extend Y labels 10 fold, so that all images have labels
-			Train_Y_spatial = np.repeat(Train_Y, 9, axis=0)
-			Test_Y_spatial = np.repeat(Test_Y, 9, axis=0)
-		
-		elif dB == 'CASME2_RGB':
-			Train_X_spatial = Train_X.reshape(Train_X.shape[0]*10, r, w, 3)
-			Test_X_spatial = Test_X.reshape(Test_X.shape[0]* 10, r, w, 3)
-			# Extend Y labels 10 fold, so that all images have labels
-			Train_Y_spatial = np.repeat(Train_Y,10, axis=0)
-			Test_Y_spatial = np.repeat(Test_Y, 10, axis=0)
-		
 
 		# print ("Train_X_shape: " + str(np.shape(Train_X_spatial)))
 		# print ("Train_Y_shape: " + str(np.shape(Train_Y_spatial)))
