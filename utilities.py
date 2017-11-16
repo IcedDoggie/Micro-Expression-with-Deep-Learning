@@ -176,10 +176,10 @@ def data_loader_with_LOSO(subject, SubjectPerDatabase, y_labels, subjects):
 	Train_Y=np.hstack(Train_Y)
 	Train_Y=np_utils.to_categorical(Train_Y,5)
 	#############################################################
-	# print ("Train_X_shape: " + str(np.shape(Train_X)))
-	# print ("Train_Y_shape: " + str(np.shape(Train_Y)))
-	# print ("Test_X_shape: " + str(np.shape(Test_X)))	
-	# print ("Test_Y_shape: " + str(np.shape(Test_Y)))	
+	print ("Train_X_shape: " + str(np.shape(Train_X)))
+	print ("Train_Y_shape: " + str(np.shape(Train_Y)))
+	print ("Test_X_shape: " + str(np.shape(Test_X)))	
+	print ("Test_Y_shape: " + str(np.shape(Test_Y)))	
 
 	return Train_X, Train_Y, Test_X, Test_Y, Test_Y_gt
 
@@ -283,3 +283,24 @@ def ignore_casme_samples(inputDir):
 
 
 	return listOfIgnoredSamples, IgnoredSamples_index
+
+def ignore_casmergb_samples(inputDir): # not a universal function, only specific to casme2_tim and derived data from casme2_tim
+	# ignored due to:
+	# 1) no matching label.
+	# 2) fear, sadness are excluded due to too little data, see CASME2 paper for more
+	IgnoredSamples = ['sub09/EP02_02f/', 'sub24/EP02_07/'] 
+	listOfIgnoredSamples=[]
+	for s in range(len(IgnoredSamples)):
+		if s==0:
+			listOfIgnoredSamples=[inputDir+IgnoredSamples[s]]
+		else:
+			listOfIgnoredSamples.append(inputDir+IgnoredSamples[s])
+	### Get index of samples to be ignored in terms of subject id ###
+	IgnoredSamples_index = np.empty([0])
+	for item in IgnoredSamples:
+		item = item.split('sub', 1)[1]
+		item = int(item.split('/', 1)[0]) - 1 
+		IgnoredSamples_index = np.append(IgnoredSamples_index, item)
+
+
+	return listOfIgnoredSamples, IgnoredSamples_index	
