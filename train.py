@@ -77,7 +77,7 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_siz
 		channel = 3
 		############################################		
 
-		os.remove(workplace + "Classification/CASME2_TIM_label.txt")
+		# os.remove(workplace + "Classification/CASME2_TIM_label.txt")
 
 	elif dB == 'CASME2_RGB':
 		# print(inputDir)
@@ -111,7 +111,7 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_siz
 		pad_sequence = 10
 		channel = 1
 		#########################################################
-
+	print(VidPerSubject)
 
 	############## Flags ####################
 	tensorboard_flag = tensorboard
@@ -141,7 +141,7 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_siz
 
 
 	############ Reading Images and Labels ################
-	SubperdB = Read_Input_Images(inputDir, listOfIgnoredSamples, dB, resizedFlag, table, workplace, spatial_size)
+	SubperdB = Read_Input_Images(inputDir, listOfIgnoredSamples, dB, resizedFlag, table, workplace, spatial_size, channel)
 	print("Loaded Images into the tray...")
 	labelperSub = label_matching(workplace, dB, subjects, VidPerSubject)
 	print("Loaded Labels into the tray...")
@@ -223,11 +223,13 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_siz
 		Train_X, Train_Y, Test_X, Test_Y, Test_Y_gt = data_loader_with_LOSO(sub, SubperdB, labelperSub, subjects)
 
 		# Rearrange Training labels into a vector of images, breaking sequence
+		# print(Train_X.shape)
 		Train_X_spatial = Train_X.reshape(Train_X.shape[0]*timesteps_TIM, r, w, channel)
 		Test_X_spatial = Test_X.reshape(Test_X.shape[0]* timesteps_TIM, r, w, channel)
-		# Duplicate channel of input image
-		Train_X_spatial = duplicate_channel(Train_X_spatial)
-		Test_X_spatial = duplicate_channel(Test_X_spatial)
+		if channel == 1:
+			# Duplicate channel of input image
+			Train_X_spatial = duplicate_channel(Train_X_spatial)
+			Test_X_spatial = duplicate_channel(Test_X_spatial)
 		# Extend Y labels 10 fold, so that all images have labels
 		Train_Y_spatial = np.repeat(Train_Y, timesteps_TIM, axis=0)
 		Test_Y_spatial = np.repeat(Test_Y, timesteps_TIM, axis=0)		
@@ -303,9 +305,35 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_siz
 			vgg_model.save_weights(spatial_weights_name + str(sub) + ".h5")
 			plot_model(vgg_model, to_file="spatial_module_ONLY.png", show_shapes=True)
 
+
+
+
 			# Testing
+			# predict = vgg_model.predict_classes(test_X, batch_size = batch_size)
+			# Test_Y_gt = np.repeat(Test_Y_gt, timesteps_TIM, axis=0)
+
+			# For Majority Vote (make batch size divisible by 10(TIM No.))
 			predict = vgg_model.predict_classes(test_X, batch_size = batch_size)
-			Test_Y_gt = np.repeat(Test_Y_gt, timesteps_TIM, axis=0)
+			voted_predict = []
+			i = 0
+			while i < int(len(predict)/timesteps_TIM) - 1:
+				fraction_of_predict = predict[i * timesteps_TIM : (i+1) * timesteps_TIM]
+				# print(fraction_of_predict)
+				fraction_of_predict = np.asarray(fraction_of_predict)
+				frequencies = np.bincount(fraction_of_predict)
+				highest_frequency = np.argmax(frequencies)
+				voted_predict += [highest_frequency]
+
+				i += 1
+				if i+1 >= int(len(predict)/timesteps_TIM) :
+					fraction_of_predict = predict[(i) * timesteps_TIM : len(predict)]
+					fraction_of_predict = np.asarray(fraction_of_predict)
+					frequencies = np.bincount(fraction_of_predict)
+					highest_frequency = np.argmax(frequencies)
+					voted_predict += [highest_frequency]					
+
+			# print(voted_predict)
+			predict = voted_predict	
 
 		elif train_spatial_flag == 0 and train_temporal_flag == 1:
 			# trains temporal module ONLY.
