@@ -25,6 +25,59 @@ from labelling import collectinglabel
 from reordering import readinput
 from evaluationmatrix import fpr
 
+def VGG_16_4_channels(spatial_size, weights_path=None):
+	model = Sequential()
+	model.add(ZeroPadding2D((1,1),input_shape=(7, spatial_size, spatial_size)))
+	model.add(Conv2D(64, (3, 3), activation='relu'))
+	model.add(ZeroPadding2D((1,1)))
+	model.add(Conv2D(64, (3, 3), activation='relu'))
+	model.add(MaxPooling2D((2,2), strides=(2,2)))
+
+	model.add(ZeroPadding2D((1,1)))
+	model.add(Conv2D(128, (3, 3), activation='relu'))
+	model.add(ZeroPadding2D((1,1)))
+	model.add(Conv2D(128, (3, 3), activation='relu'))
+	model.add(MaxPooling2D((2,2), strides=(2,2)))
+
+	model.add(ZeroPadding2D((1,1)))
+	model.add(Conv2D(256, (3, 3), activation='relu'))
+	model.add(ZeroPadding2D((1,1)))
+	model.add(Conv2D(256, (3, 3), activation='relu'))
+	model.add(ZeroPadding2D((1,1)))
+	model.add(Conv2D(256, (3, 3), activation='relu'))
+	model.add(MaxPooling2D((2,2), strides=(2,2)))
+
+	model.add(ZeroPadding2D((1,1)))
+	model.add(Conv2D(512, (3, 3), activation='relu'))
+	model.add(ZeroPadding2D((1,1)))
+	model.add(Conv2D(512, (3, 3), activation='relu'))
+	model.add(ZeroPadding2D((1,1)))
+	model.add(Conv2D(512, (3, 3), activation='relu'))
+	model.add(MaxPooling2D((2,2), strides=(2,2)))
+
+	model.add(ZeroPadding2D((1,1)))
+	model.add(Conv2D(512, (3, 3), activation='relu'))
+	model.add(ZeroPadding2D((1,1)))
+	model.add(Conv2D(512, (3, 3), activation='relu'))
+	model.add(ZeroPadding2D((1,1)))
+	model.add(Conv2D(512, (3, 3), activation='relu'))
+	model.add(MaxPooling2D((2,2), strides=(2,2))) # 33
+
+	model.add(Flatten())
+	model.add(Dense(4096, activation='relu')) # 34
+	model.add(Dropout(0.5))
+	model.add(Dense(4096, activation='relu')) # 35
+	model.add(Dropout(0.5))
+	model.add(Dense(2622, activation='softmax')) # Dropped
+
+
+	if weights_path:
+		model.load_weights(weights_path)
+	model.pop()
+	model.add(Dense(5, activation='softmax')) # 36
+	
+	return model
+
 def VGG_16(spatial_size, weights_path=None):
 	model = Sequential()
 	model.add(ZeroPadding2D((1,1),input_shape=(3, spatial_size, spatial_size)))
@@ -78,56 +131,6 @@ def VGG_16(spatial_size, weights_path=None):
 	
 	return model
 
-def VGG_16_test(weights_path=None):
-	model = Sequential()
-	model.add(ZeroPadding2D((1,1), input_shape=(3, 224, 224)))
-	model.add(Conv2D(64, (3, 3), activation='relu'))
-	model.add(ZeroPadding2D((1,1)))
-	model.add(Conv2D(64, (3, 3), activation='relu'))
-	model.add(MaxPooling2D((2,2), strides=(2,2)))
-
-	model.add(ZeroPadding2D((1,1)))
-	model.add(Conv2D(128, (3, 3), activation='relu'))
-	model.add(ZeroPadding2D((1,1)))
-	model.add(Conv2D(128, (3, 3), activation='relu'))
-	model.add(MaxPooling2D((2,2), strides=(2,2)))
-
-	model.add(ZeroPadding2D((1,1)))
-	model.add(Conv2D(256, (3, 3), activation='relu'))
-	model.add(ZeroPadding2D((1,1)))
-	model.add(Conv2D(256, (3, 3), activation='relu'))
-	model.add(ZeroPadding2D((1,1)))
-	model.add(Conv2D(256, (3, 3), activation='relu'))
-	model.add(MaxPooling2D((2,2), strides=(2,2)))
-
-	model.add(ZeroPadding2D((1,1)))
-	model.add(Conv2D(512, (3, 3), activation='relu'))
-	model.add(ZeroPadding2D((1,1)))
-	model.add(Conv2D(512, (3, 3), activation='relu'))
-	model.add(ZeroPadding2D((1,1)))
-	model.add(Conv2D(512, (3, 3), activation='relu'))
-	model.add(MaxPooling2D((2,2), strides=(2,2)))
-
-	model.add(ZeroPadding2D((1,1)))
-	model.add(Conv2D(512, (3, 3), activation='relu'))
-	model.add(ZeroPadding2D((1,1)))
-	model.add(Conv2D(512, (3, 3), activation='relu'))
-	model.add(ZeroPadding2D((1,1)))
-	model.add(Conv2D(512, (3, 3), activation='relu'))
-	model.add(MaxPooling2D((2,2), strides=(2,2)))
-
-	model.add(Flatten())
-	model.add(Dense(4096, activation='relu'))
-	model.add(Dropout(0.5))
-	model.add(Dense(4096, activation='relu'))
-	model.add(Dropout(0.5))
-
-	model.add(Dense(5, activation='softmax'))
-
-	if weights_path:
-		model.load_weights(weights_path)
-
-	return model
 
 
 def VGG_16_cam(weights_path=None):

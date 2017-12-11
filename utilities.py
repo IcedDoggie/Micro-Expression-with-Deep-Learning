@@ -22,6 +22,7 @@ from keras.utils import np_utils
 from keras import metrics
 from keras import backend as K
 from keras.models import model_from_json
+import keras
 
 from labelling import collectinglabel
 from reordering import readinput
@@ -29,7 +30,7 @@ from evaluationmatrix import fpr
 
 
 
-def Read_Input_Images(inputDir, listOfIgnoredSamples, dB, resizedFlag, table, workplace, spatial_size):
+def Read_Input_Images(inputDir, listOfIgnoredSamples, dB, resizedFlag, table, workplace, spatial_size, channel):
 	# r=224; w=224
 	r=w=spatial_size	
 	SubperdB=[]
@@ -69,7 +70,7 @@ def Read_Input_Images(inputDir, listOfIgnoredSamples, dB, resizedFlag, table, wo
 					
 					[_,_,dim]=img.shape
 					
-					if dim ==3:
+					if channel == 1:
 
 						img=cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
 
@@ -116,6 +117,7 @@ def get_subfolders_num(path, IgnoredSamples_index):
 
 
 		if len(dirnames) > 0:
+			print(dirnames)
 			folders_array = np.append(folders_array, len(dirnames))
 	# print(type(folders_array[0]))
 	# folders -= 26 # hardcoded, because it includes the root path
@@ -176,10 +178,10 @@ def data_loader_with_LOSO(subject, SubjectPerDatabase, y_labels, subjects):
 	Train_Y=np.hstack(Train_Y)
 	Train_Y=np_utils.to_categorical(Train_Y,5)
 	#############################################################
-	print ("Train_X_shape: " + str(np.shape(Train_X)))
-	print ("Train_Y_shape: " + str(np.shape(Train_Y)))
-	print ("Test_X_shape: " + str(np.shape(Test_X)))	
-	print ("Test_Y_shape: " + str(np.shape(Test_Y)))	
+	# print ("Train_X_shape: " + str(np.shape(Train_X)))
+	# print ("Train_Y_shape: " + str(np.shape(Train_Y)))
+	# print ("Test_X_shape: " + str(np.shape(Test_X)))	
+	# print ("Test_Y_shape: " + str(np.shape(Test_Y)))	
 
 	return Train_X, Train_Y, Test_X, Test_Y, Test_Y_gt
 
@@ -267,7 +269,9 @@ def ignore_casme_samples(inputDir):
 	# 2) fear, sadness are excluded due to too little data, see CASME2 paper for more
 	IgnoredSamples = ['sub09/EP13_02/','sub09/EP02_02f/','sub10/EP13_01/','sub17/EP15_01/',
 						'sub17/EP15_03/','sub19/EP19_04/','sub24/EP10_03/','sub24/EP07_01/',
-						'sub24/EP07_04f/','sub24/EP02_07/','sub26/EP15_01/']
+						'sub24/EP07_04f/','sub24/EP02_07/','sub26/EP15_01/', ]
+	# IgnoredSamples = ['sub09/EP02_02f/', 'sub24/EP02_07/']
+
 	listOfIgnoredSamples=[]
 	for s in range(len(IgnoredSamples)):
 		if s==0:
@@ -288,7 +292,10 @@ def ignore_casmergb_samples(inputDir): # not a universal function, only specific
 	# ignored due to:
 	# 1) no matching label.
 	# 2) fear, sadness are excluded due to too little data, see CASME2 paper for more
-	IgnoredSamples = ['sub09/EP02_02f/', 'sub24/EP02_07/'] 
+	IgnoredSamples = ['sub09/EP02_02f/', 'sub24/EP02_07/']
+	# IgnoredSamples = ['sub09/EP13_02/','sub09/EP02_02f/','sub10/EP13_01/','sub17/EP15_01/',
+	# 					'sub17/EP15_03/','sub19/EP19_04/','sub24/EP10_03/','sub24/EP07_01/',
+	# 					'sub24/EP07_04f/','sub24/EP02_07/','sub26/EP15_01/']	 
 	listOfIgnoredSamples=[]
 	for s in range(len(IgnoredSamples)):
 		if s==0:
@@ -304,3 +311,11 @@ def ignore_casmergb_samples(inputDir): # not a universal function, only specific
 
 
 	return listOfIgnoredSamples, IgnoredSamples_index	
+
+class LossHistory(keras.callbacks.Callback):
+	def on_train_begin(self, logs={}):
+		self.losses = []
+		self.accuracy = []
+	def on_epoch_end(self, epoch, logs={}):
+		self.losses.append(logs.get('loss'))
+		self.accuracy.append(logs.get('categorical_accuracy'))

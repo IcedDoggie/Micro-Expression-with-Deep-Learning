@@ -32,8 +32,8 @@ from labelling import collectinglabel
 from reordering import readinput
 from evaluationmatrix import fpr
 from utilities import Read_Input_Images, get_subfolders_num, data_loader_with_LOSO, label_matching, duplicate_channel
-from utilities import record_scores, loading_smic_table, loading_casme_table, ignore_casme_samples, ignore_casmergb_samples
-from models import VGG_16, temporal_module, modify_cam
+from utilities import record_scores, loading_smic_table, loading_casme_table, ignore_casme_samples, ignore_casmergb_samples, LossHistory
+from models import VGG_16, temporal_module, modify_cam, VGG_16_4_channels
 
 
 def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_size, flag, tensorboard):
@@ -49,17 +49,21 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_siz
 
 		############## Variables ###################
 		r = w = spatial_size
-		subjects=26
+		subjects=2
 		samples = 246
 		n_exp = 5
-		VidPerSubject = get_subfolders_num(inputDir, IgnoredSamples_index)
+		# VidPerSubject = get_subfolders_num(inputDir, IgnoredSamples_index)
+		listOfIgnoredSamples = []
+		VidPerSubject = [2,1]
 		timesteps_TIM = 10
 		data_dim = r * w
 		pad_sequence = 10
-		channel = 1
+		channel = 3
 		############################################		
 
 		os.remove(workplace + "Classification/CASME2_TIM_label.txt")
+
+
 
 	elif dB == 'CASME2_Optical':
 		table = loading_casme_table(workplace + 'CASME2_label_Ver_2.xls')
@@ -121,6 +125,7 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_siz
 	svm_flag = 0
 	finetuning_flag = 0
 	cam_visualizer_flag = 0
+	channel_flag = 0
 
 	if flag == 'st':
 		train_spatial_flag = 1
@@ -136,6 +141,14 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_siz
 	elif flag == 'scratch':
 		train_spatial_flag = 1
 		train_temporal_flag = 1
+	elif flag == 'st4':
+		train_spatial_flag = 1
+		train_temporal_flag = 1
+		channel_flag = 1
+	elif flag == 'st7':
+		train_spatial_flag = 1
+		train_temporal_flag = 1
+		channel_flag = 2
 	#########################################
 
 
@@ -145,12 +158,18 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_siz
 	print("Loaded Images into the tray...")
 	labelperSub = label_matching(workplace, dB, subjects, VidPerSubject)
 	print("Loaded Labels into the tray...")
+
+	if channel_flag == 1:
+		SubperdB_strain = Read_Input_Images(inputDir, listOfIgnoredSamples, 'CASME2_Strain_TIM10', resizedFlag, table, workplace, spatial_size, 1)
+	elif channel_flag == 2:
+		SubperdB_strain = Read_Input_Images(inputDir, listOfIgnoredSamples, 'CASME2_Strain_TIM10', resizedFlag, table, workplace, spatial_size, 1)
+		SubperdB_gray = Read_Input_Images(inputDir, listOfIgnoredSamples, 'CASME2_TIM', resizedFlag, table, workplace, spatial_size, 3)		
 	#######################################################
 
 
 	########### Model Configurations #######################
 	sgd = optimizers.SGD(lr=0.0001, decay=1e-7, momentum=0.9, nesterov=True)
-	adam = optimizers.Adam(lr=0.00001)
+	adam = optimizers.Adam(lr=0.00001, decay=0.000001)
 
 	# Different Conditions for Temporal Learning ONLY
 	if train_spatial_flag == 0 and train_temporal_flag == 1 and dB != 'CASME2_Optical':
@@ -164,14 +183,14 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_siz
 
 
 	########### Image Data Generator ##############
-	# image_generator = ImageDataGenerator(
-	# 	zca_whitening = True,
-	# 	rotation_range = 0.2,
-	# 	width_shift_range = 0.2,
-	# 	height_shift_range = 0.2, 
-	# 	zoom_range = 0.2,
-	# 	horizontal_flip = True,
-	# 	rescale = 1.5)
+	image_generator = ImageDataGenerator(
+		zca_whitening = True,
+		rotation_range = 0.2,
+		width_shift_range = 0.2,
+		height_shift_range = 0.2, 
+		zoom_range = 0.2,
+		horizontal_flip = True,
+		rescale = 1.5)
 	###############################################
 
 	########### Training Process ############
@@ -190,18 +209,25 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_siz
 	# model checkpoint
 	spatial_weights_name = 'vgg_spatial_'+ str(train_id) + '_casme2_'
 	temporal_weights_name = 'temporal_ID_' + str(train_id) + '_casme2_'
+	history = LossHistory()
 
 
 	for sub in range(subjects):
 		############### Reinitialization & weights reset of models ########################
-		vgg_model = VGG_16(spatial_size = spatial_size, weights_path='VGG_Face_Deep_16.h5')
-		vgg_model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=[metrics.sparse_categorical_accuracy])
 
 		vgg_model_cam = VGG_16(spatial_size=spatial_size, weights_path='VGG_Face_Deep_16.h5')
 
 		temporal_model = temporal_module(data_dim=data_dim, timesteps_TIM=timesteps_TIM)
 		temporal_model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=[metrics.categorical_accuracy])
-		
+
+		if channel_flag == 1 or channel_flag == 2:
+			vgg_model = VGG_16_4_channels(spatial_size = spatial_size)
+			vgg_model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=[metrics.categorical_accuracy])
+		else:
+			vgg_model = VGG_16(spatial_size = spatial_size, weights_path='VGG_Face_Deep_16.h5')
+			vgg_model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=[metrics.categorical_accuracy])
+
+
 		svm_classifier = SVC(kernel='linear', C=1)
 
 		####################################################################################
@@ -223,13 +249,38 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_siz
 		Train_X, Train_Y, Test_X, Test_Y, Test_Y_gt = data_loader_with_LOSO(sub, SubperdB, labelperSub, subjects)
 
 		# Rearrange Training labels into a vector of images, breaking sequence
-		# print(Train_X.shape)
 		Train_X_spatial = Train_X.reshape(Train_X.shape[0]*timesteps_TIM, r, w, channel)
 		Test_X_spatial = Test_X.reshape(Test_X.shape[0]* timesteps_TIM, r, w, channel)
+
+		
+		# Special Loading for 4-Channel
+		if channel_flag == 1:
+			Train_X_Strain, _, Test_X_Strain, _, _ = data_loader_with_LOSO(sub, SubperdB_strain, labelperSub, subjects)
+			Train_X_Strain = Train_X_Strain.reshape(Train_X_Strain.shape[0]*timesteps_TIM, r, w, 1)
+			Test_X_Strain = Test_X_Strain.reshape(Test_X.shape[0]*timesteps_TIM, r, w, 1)
+			# Concatenate Train X & Train_X_Strain
+			Train_X_spatial = np.concatenate((Train_X_spatial, Train_X_Strain), axis=3)
+			Test_X_spatial = np.concatenate((Test_X_spatial, Test_X_Strain), axis=3)
+			channel = 4
+
+		elif channel_flag == 2:
+			Train_X_Strain, _, Test_X_Strain, _, _ = data_loader_with_LOSO(sub, SubperdB_strain, labelperSub, subjects)
+			Train_X_gray, _, Test_X_gray, _, _ = data_loader_with_LOSO(sub, SubperdB_gray, labelperSub, subjects)
+			Train_X_Strain = Train_X_Strain.reshape(Train_X_Strain.shape[0]*timesteps_TIM, r, w, 1)
+			Test_X_Strain = Test_X_Strain.reshape(Test_X_Strain.shape[0]*timesteps_TIM, r, w, 1)
+			Train_X_gray = Train_X_gray.reshape(Train_X_gray.shape[0]*timesteps_TIM, r, w, 3)
+			Test_X_gray = Test_X_gray.reshape(Test_X_gray.shape[0]*timesteps_TIM, r, w, 3)
+
+			# Concatenate Train_X_Strain & Train_X & Train_X_gray
+			Train_X_spatial = np.concatenate((Train_X_spatial, Train_X_Strain, Train_X_gray), axis=3)
+			Test_X_spatial = np.concatenate((Test_X_spatial, Test_X_Strain, Test_X_gray), axis=3)	
+			channel = 7		
+		
 		if channel == 1:
 			# Duplicate channel of input image
 			Train_X_spatial = duplicate_channel(Train_X_spatial)
 			Test_X_spatial = duplicate_channel(Test_X_spatial)
+
 		# Extend Y labels 10 fold, so that all images have labels
 		Train_Y_spatial = np.repeat(Train_Y, timesteps_TIM, axis=0)
 		Test_Y_spatial = np.repeat(Test_Y, timesteps_TIM, axis=0)		
@@ -242,13 +293,15 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_siz
 		# print(Train_X_spatial)
 		##################### Training & Testing #########################
 
-			
+		# print(Train_X_spatial.shape)	
 
-		X = Train_X_spatial.reshape(Train_X_spatial.shape[0], 3, r, w)
+		X = Train_X_spatial.reshape(Train_X_spatial.shape[0], channel, r, w)
 		y = Train_Y_spatial.reshape(Train_Y_spatial.shape[0], 5)
 
-		test_X = Test_X_spatial.reshape(Test_X_spatial.shape[0], 3, r, w)
+		test_X = Test_X_spatial.reshape(Test_X_spatial.shape[0], channel, r, w)
 		test_y = Test_Y_spatial.reshape(Test_Y_spatial.shape[0], 5)
+
+		print(X.shape)
 
 		###### conv weights must be freezed for transfer learning ######
 		if finetuning_flag == 1:
@@ -264,7 +317,16 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_siz
 			if tensorboard_flag == 1:
 				vgg_model.fit(X, y, batch_size=batch_size, epochs=spatial_epochs, shuffle=True, callbacks=[tbCallBack2])
 			else:
-				vgg_model.fit(X, y, batch_size=batch_size, epochs=spatial_epochs, shuffle=True)
+				vgg_model.fit(X, y, batch_size=batch_size, epochs=spatial_epochs, shuffle=True, callbacks=[history])
+
+			# record f1 and loss
+			file_loss = open(workplace+'Classification/'+ 'Result/'+dB+'/loss_' + str(train_id) +  '.txt', 'a')
+			file_loss.write(str(history.losses) + "\n")
+			file_loss.close()
+
+			file_loss = open(workplace+'Classification/'+ 'Result/'+dB+'/accuracy_' + str(train_id) +  '.txt', 'a')
+			file_loss.write(str(history.accuracy) + "\n")
+			file_loss.close()			
 
 			vgg_model.save_weights(spatial_weights_name + str(sub) + ".h5")
 			model = Model(inputs=vgg_model.input, outputs=vgg_model.layers[35].output)
@@ -291,10 +353,10 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_siz
 		elif train_spatial_flag == 1 and train_temporal_flag == 0 and cam_visualizer_flag == 0:
 			# trains spatial module ONLY, no escape
 			
-			# image_generator.fit(X)
-			# vgg_model.fit_generator(image_generator.flow(X, y, batch_size=batch_size,
-			#  save_to_dir="./augmented/", save_format='png', save_prefix='augmented_me'),
-			#   steps_per_epoch=len(X)/batch_size, epochs=spatial_epochs)
+			image_generator.fit(X)
+			vgg_model.fit_generator(image_generator.flow(X, y, batch_size=batch_size,
+			 save_to_dir="./augmented/", save_format='png', save_prefix='augmented_me'),
+			  steps_per_epoch=len(X)/batch_size, epochs=spatial_epochs)
 			
 			# Spatial Training
 			if tensorboard_flag == 1:

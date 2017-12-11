@@ -38,6 +38,46 @@ def flip(image):
 
 	return horizontal, vertical
 
+def pixel_removal(number_of_pixels, image_file):
+
+	image = cv2.imread(image_file)
+	# list_of_images = np.empty([0])
+	list_of_images = []
+
+	# preliminaries
+	size_y, size_x = image.shape[0], image.shape[1]
+	removal_region = 9
+	diff_x = int(size_x/2) - number_of_pixels
+	diff_y = int(size_y/2) - number_of_pixels
+	d_x = 0
+	d_y = 0
+
+
+
+	for i in range(removal_region):
+		image_removal = cv2.imread(image_file, 1)
+
+
+		if d_x > size_x:
+			d_x = 0
+
+		# 3, 4, 5
+		if i == 3:
+			d_y += diff_y
+
+		# 6, 7, 8
+		if i == 6:
+			d_y += diff_y			
+
+
+		image_removal[d_y:d_y+number_of_pixels, d_x:d_x+number_of_pixels] = 0
+
+		d_x += diff_x
+
+
+		# list_of_images = np.append(list_of_images, image_removal)
+		list_of_images += [image_removal]
+	return list_of_images
 
 
 
@@ -100,11 +140,11 @@ def augmenting():
 					scaled_img0_9, scaled_img1_0, scaled_img1_1, translation_1, translation_2, translation_3,
 					translation_4, horizontal, vertical ])
 
-				
 
-				# print(augmentations.shape)
+
+
 				counter = 0
-				seq_var = -13
+				seq_var = -9
 				count_seq = 0
 				filename_count = 1
 
@@ -192,7 +232,53 @@ def preprocessing_keras():
 		print("augmented")
 
 
-# preprocessing_keras()
-augmenting()
+def augmenting2():
+	new_image = 0
+	for sub in sorted([infile for infile in os.listdir(img_path)]):     
+
+		for vid in sorted([inrfile for inrfile in os.listdir(img_path+sub)]):
+			augmentations = np.empty([0])
+			path = img_path + sub + '/'+ vid + '/'
+			folder_path = img_path + sub + '/'
+			if path in listOfIgnoredSamples:
+				continue
+			# print(path)
+			imgList=readinput(path,dB)
+		  	
+			numFrame=len(imgList)
+			# print(numFrame)
+			# print("imglist: %i" % imgList)
+
+			for var in range(numFrame):
+				augmentations = pixel_removal(2, imgList[var])
+				
+				# print("augmentations: %i" % len(augmentations))
+				# print("var: %i" % var)
+				counter = 0
 
 
+				while counter < len(augmentations):
+						
+				# 	# split augmented data into different folders
+					folder_name = vid + "_" + str(counter)
+					folder_name = folder_path + folder_name + "/"
+					# print(folder_name)
+					if not os.path.exists(folder_name):
+						os.makedirs(folder_name)	
+					if var < 9:
+						filename = folder_name + "00" + str( var + 1 ) + ".jpg"
+					else:
+						filename = folder_name + "0" + str( var + 1 ) + ".jpg"
+
+					os.chdir(folder_name)
+					cv2.imwrite(filename, augmentations[counter])
+					os.chdir(path)
+					counter += 1
+					print("Written to: " + filename)
+				
+					new_image += 1
+	print("Total new images: " + str(new_image))			
+
+
+
+augmenting2()
