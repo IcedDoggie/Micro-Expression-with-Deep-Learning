@@ -117,7 +117,7 @@ def get_subfolders_num(path, IgnoredSamples_index):
 
 
 		if len(dirnames) > 0:
-			print(dirnames)
+			# print(dirnames)
 			folders_array = np.append(folders_array, len(dirnames))
 	# print(type(folders_array[0]))
 	# folders -= 26 # hardcoded, because it includes the root path
@@ -133,35 +133,27 @@ def get_subfolders_num(path, IgnoredSamples_index):
 
 	folders_array = folders_array.tolist()
 	folders_array = [int(i) for i in folders_array]
-	print( "{:,} files, {:,} folders".format(files, folders) )
+	# print( "{:,} files, {:,} folders".format(files, folders) )
 	return folders_array
 
 
-def data_loader_with_LOSO(subject, SubjectPerDatabase, y_labels, subjects):
+def data_loader_with_LOSO(subject, SubjectPerDatabase, y_labels, subjects, classes):
 	Train_X = []
 	Train_Y = []
-	# print(sub_id[0])
-	# print(len(SubjectPerDatabase[0]))
-	Test_X = np.array(SubjectPerDatabase[subject])
-	# print(SubjectPerDatabase[subject])
-	Test_Y = np_utils.to_categorical(y_labels[subject], 5)
-	Test_Y_gt = y_labels[subject]
-	# print(sub_id[subject])
-	# print(vid_id)
 
-	# print(vid_id[subject])
-	# print("blank")	
+	Test_X = np.array(SubjectPerDatabase[subject])
+	Test_Y = np_utils.to_categorical(y_labels[subject], classes)
+	Test_Y_gt = y_labels[subject]
+
 	########### Leave-One-Subject-Out ###############
 	if subject==0:
 		for i in range(1,subjects):
 			Train_X.append(SubjectPerDatabase[i])
 			Train_Y.append(y_labels[i])
-			# print(sub_id[i])
 	elif subject==subjects-1:
 		for i in range(subjects-1):
 			Train_X.append(SubjectPerDatabase[i])
 			Train_Y.append(y_labels[i])
-			# print(sub_id[i])
 	else:
 		for i in range(subjects):
 			if subject == i:
@@ -169,14 +161,12 @@ def data_loader_with_LOSO(subject, SubjectPerDatabase, y_labels, subjects):
 			else:
 				Train_X.append(SubjectPerDatabase[i])
 				Train_Y.append(y_labels[i])	
-				# print(sub_id[i])
 	##################################################
 
 	############ Conversion to numpy and stacking ##############
-	# print(Train_X)
 	Train_X=np.vstack(Train_X) 
 	Train_Y=np.hstack(Train_Y)
-	Train_Y=np_utils.to_categorical(Train_Y,5)
+	Train_Y=np_utils.to_categorical(Train_Y, classes)
 	#############################################################
 	# print ("Train_X_shape: " + str(np.shape(Train_X)))
 	# print ("Train_Y_shape: " + str(np.shape(Train_Y)))
@@ -242,6 +232,20 @@ def loading_smic_labels(root_db_path, dB):
 	# print(label_file)
 	return subject, filename, label, num_frames
 
+def loading_samm_labels(root_db_path, dB):
+	label_filename = 'SAMM_Micro_FACS_Codes_v2.xlsx'
+
+	label_path = root_db_path + dB + "/" + label_filename
+	label_file = pd.read_excel(label_path, converters={'Subject': lambda x: str(x)})
+
+	subject = label_file[['Subject']]
+	filename = label_file[['Filename']]
+	label = label_file[['Estimated Emotion']]
+	objective_classes = label_file[['Objective Classes']]
+	# print(label)
+	return subject, filename, label, objective_classes
+
+
 
 def loading_casme_table(xcel_path):
 	wb=xlrd.open_workbook(xcel_path)
@@ -262,6 +266,18 @@ def loading_smic_table(root_db_path, dB):
 
 	table = np.transpose( np.array( [filename, label] ) )	
 	return table	
+
+def loading_samm_table(root_db_path, dB):	
+	subject, filename, label, objective_classes = loading_samm_labels(root_db_path, dB)
+	# print("subject:%s filename:%s label:%s objective_classes:%s" %(subject, filename, label, objective_classes))
+	filename = filename.as_matrix()
+	label = label.as_matrix()
+	objective_classes = objective_classes.as_matrix()
+
+	table = np.transpose( np.array( [filename, label] ) )
+	table_objective = np.transpose( np.array( [filename, objective_classes] ) )
+	# print(table)
+	return table, table_objective
 
 def ignore_casme_samples(inputDir):
 	# ignored due to:

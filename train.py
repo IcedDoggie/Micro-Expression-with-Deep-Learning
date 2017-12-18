@@ -27,12 +27,14 @@ from keras import optimizers
 from keras.applications.vgg16 import VGG16 as keras_vgg16
 from keras.preprocessing.image import ImageDataGenerator
 import keras
+from keras.callbacks import EarlyStopping
 
 from labelling import collectinglabel
 from reordering import readinput
 from evaluationmatrix import fpr
 from utilities import Read_Input_Images, get_subfolders_num, data_loader_with_LOSO, label_matching, duplicate_channel
 from utilities import record_scores, loading_smic_table, loading_casme_table, ignore_casme_samples, ignore_casmergb_samples, LossHistory
+from utilities import loading_samm_table
 from models import VGG_16, temporal_module, modify_cam, VGG_16_4_channels
 
 
@@ -42,7 +44,7 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_siz
 	workplace = root_db_path + dB + "/"
 	inputDir = root_db_path + dB + "/" + dB + "/" 
 	######################################################
-
+	classes = 5
 	if dB == 'CASME2_TIM':
 		table = loading_casme_table(workplace + 'CASME2_label_Ver_2.xls')
 		listOfIgnoredSamples, IgnoredSamples_index = ignore_casme_samples(inputDir)
@@ -114,8 +116,29 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_siz
 		data_dim = r * w
 		pad_sequence = 10
 		channel = 1
+		classes = 3
 		#########################################################
-	print(VidPerSubject)
+
+	elif dB == 'SAMM_TIM':
+		table, table_objective = loading_samm_table(root_db_path, dB)
+		listOfIgnoredSamples = []
+		IgnoredSamples_index = np.empty([0])
+
+		################# Variables #############################
+		r = w = spatial_size
+		subjects = 29
+		samples = 159
+		n_exp = 8
+		VidPerSubject = get_subfolders_num(inputDir, IgnoredSamples_index)
+		timesteps_TIM = 10
+		data_dim = r * w
+		pad_sequence = 10
+		channel = 3
+		classes = 8
+		#########################################################		
+
+
+	# print(VidPerSubject)
 
 	############## Flags ####################
 	tensorboard_flag = tensorboard
@@ -210,21 +233,23 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_siz
 	spatial_weights_name = 'vgg_spatial_'+ str(train_id) + '_casme2_'
 	temporal_weights_name = 'temporal_ID_' + str(train_id) + '_casme2_'
 	history = LossHistory()
+	stopping = EarlyStopping(monitor='loss', min_delta = 0, mode = 'min')
+
 
 
 	for sub in range(subjects):
 		############### Reinitialization & weights reset of models ########################
 
-		vgg_model_cam = VGG_16(spatial_size=spatial_size, weights_path='VGG_Face_Deep_16.h5')
+		vgg_model_cam = VGG_16(spatial_size=spatial_size, classes=classes, weights_path='VGG_Face_Deep_16.h5')
 
-		temporal_model = temporal_module(data_dim=data_dim, timesteps_TIM=timesteps_TIM)
+		temporal_model = temporal_module(data_dim=data_dim, classes=classes, timesteps_TIM=timesteps_TIM)
 		temporal_model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=[metrics.categorical_accuracy])
 
 		if channel_flag == 1 or channel_flag == 2:
-			vgg_model = VGG_16_4_channels(spatial_size = spatial_size)
+			vgg_model = VGG_16_4_channels(classes=classes, spatial_size = spatial_size)
 			vgg_model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=[metrics.categorical_accuracy])
 		else:
-			vgg_model = VGG_16(spatial_size = spatial_size, weights_path='VGG_Face_Deep_16.h5')
+			vgg_model = VGG_16(spatial_size = spatial_size, classes=classes, weights_path='VGG_Face_Deep_16.h5')
 			vgg_model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=[metrics.categorical_accuracy])
 
 
@@ -246,7 +271,8 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_siz
 
 		image_label_mapping = np.empty([0])
 
-		Train_X, Train_Y, Test_X, Test_Y, Test_Y_gt = data_loader_with_LOSO(sub, SubperdB, labelperSub, subjects)
+
+		Train_X, Train_Y, Test_X, Test_Y, Test_Y_gt = data_loader_with_LOSO(sub, SubperdB, labelperSub, subjects, classes)
 
 		# Rearrange Training labels into a vector of images, breaking sequence
 		Train_X_spatial = Train_X.reshape(Train_X.shape[0]*timesteps_TIM, r, w, channel)
@@ -296,10 +322,10 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_siz
 		# print(Train_X_spatial.shape)	
 
 		X = Train_X_spatial.reshape(Train_X_spatial.shape[0], channel, r, w)
-		y = Train_Y_spatial.reshape(Train_Y_spatial.shape[0], 5)
+		y = Train_Y_spatial.reshape(Train_Y_spatial.shape[0], classes)
 
 		test_X = Test_X_spatial.reshape(Test_X_spatial.shape[0], channel, r, w)
-		test_y = Test_Y_spatial.reshape(Test_Y_spatial.shape[0], 5)
+		test_y = Test_Y_spatial.reshape(Test_Y_spatial.shape[0], classes)
 
 		print(X.shape)
 
@@ -317,7 +343,7 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_siz
 			if tensorboard_flag == 1:
 				vgg_model.fit(X, y, batch_size=batch_size, epochs=spatial_epochs, shuffle=True, callbacks=[tbCallBack2])
 			else:
-				vgg_model.fit(X, y, batch_size=batch_size, epochs=spatial_epochs, shuffle=True, callbacks=[history])
+				vgg_model.fit(X, y, batch_size=batch_size, epochs=spatial_epochs, shuffle=True, callbacks=[history, stopping])
 
 			# record f1 and loss
 			file_loss = open(workplace+'Classification/'+ 'Result/'+dB+'/loss_' + str(train_id) +  '.txt', 'a')

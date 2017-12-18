@@ -1,21 +1,48 @@
 def collectinglabel(Table, sub, videoName, workplace, db):
-    # print(videoName)
     if db == "SMIC_TIM10":
         counter = 0
+
         for var in ((Table[0, :, 0])):
             result = -1
             # print(var)
             if videoName == var:
                 result = int(Table[0, counter, 1])
-                if result == 1:
+                if result == 1: # negative
                     result = 0
-                elif result == 2:
+                elif result == 2: # positive
                     result = 1
-                elif result == 3:
+                elif result == 3: # surprise
                     result = 2
                 # print("found: %s" % (videoName) )
                 break
             counter += 1
+    elif db == "SAMM_TIM":
+        counter = 0
+        for var in ((Table[0, :, 0])):
+            result = -1
+            if videoName == var or videoName in var:
+                result = (Table[0, counter, 1])
+                if result == 'Anger': # negative
+                    result = 0
+                elif result == 'Contempt': # positive
+                    result = 1
+                elif result == 'Disgust': # surprise
+                    result = 2
+                elif result == 'Fear': # surprise
+                    result = 3
+                elif result == 'Happiness': # surprise
+                    result = 4
+                elif result == 'Other': # surprise
+                    result = 5
+                elif result == 'Sadness': # surprise
+                    result = 6
+                elif result == 'Surprise': # surprise
+                    result = 7                    
+                # print("found: %s" % (videoName) )
+                # print(result)
+                break
+            counter += 1
+
     else:
 
         for var in range(len(Table)):

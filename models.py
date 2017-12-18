@@ -25,7 +25,7 @@ from labelling import collectinglabel
 from reordering import readinput
 from evaluationmatrix import fpr
 
-def VGG_16_4_channels(spatial_size, weights_path=None):
+def VGG_16_4_channels(spatial_size, classes, weights_path=None):
 	model = Sequential()
 	model.add(ZeroPadding2D((1,1),input_shape=(7, spatial_size, spatial_size)))
 	model.add(Conv2D(64, (3, 3), activation='relu'))
@@ -74,11 +74,11 @@ def VGG_16_4_channels(spatial_size, weights_path=None):
 	if weights_path:
 		model.load_weights(weights_path)
 	model.pop()
-	model.add(Dense(5, activation='softmax')) # 36
+	model.add(Dense(classes, activation='softmax')) # 36
 	
 	return model
 
-def VGG_16(spatial_size, weights_path=None):
+def VGG_16(spatial_size, classes, weights_path=None):
 	model = Sequential()
 	model.add(ZeroPadding2D((1,1),input_shape=(3, spatial_size, spatial_size)))
 	model.add(Conv2D(64, (3, 3), activation='relu'))
@@ -127,13 +127,13 @@ def VGG_16(spatial_size, weights_path=None):
 	if weights_path:
 		model.load_weights(weights_path)
 	model.pop()
-	model.add(Dense(5, activation='softmax')) # 36
+	model.add(Dense(classes, activation='softmax')) # 36
 	
 	return model
 
 
 
-def VGG_16_cam(weights_path=None):
+def VGG_16_cam(classes = classes, weights_path=None):
 	model = Sequential()
 	model.add(ZeroPadding2D((1,1), input_shape=(3, 224, 224)))
 	model.add(Conv2D(64, (3, 3), activation='relu'))
@@ -174,7 +174,7 @@ def VGG_16_cam(weights_path=None):
 
 	model.add(GlobalAveragePooling2D(data_format='channels_first'))
 
-	model.add(Dense(5, activation='softmax'))
+	model.add(Dense(classes, activation='softmax'))
 
 	if weights_path:
 		model.load_weights(weights_path)
@@ -183,12 +183,12 @@ def VGG_16_cam(weights_path=None):
 
 
 
-def temporal_module(data_dim, timesteps_TIM, weights_path=None):
+def temporal_module(data_dim, timesteps_TIM, classes, weights_path=None):
 	model = Sequential()
 	model.add(GRU(64, return_sequences=False, input_shape=(timesteps_TIM, data_dim)))
 	# model.add(GRU(128, return_sequences=False))
 	model.add(Dense(128, activation='relu'))
-	model.add(Dense(5, activation='sigmoid'))
+	model.add(Dense(classes, activation='sigmoid'))
 
 	if weights_path:
 		model.load_weights(weights_path)
@@ -199,7 +199,7 @@ def temporal_module(data_dim, timesteps_TIM, weights_path=None):
 
 
 
-def modify_cam(model):
+def modify_cam(model, classes):
 	model.pop()
 	model.pop()		
 	model.pop()
@@ -207,5 +207,5 @@ def modify_cam(model):
 	model.pop()
 	model.pop()
 	model.add(GlobalAveragePooling2D(data_format='channels_first'))
-	model.add(Dense(5, activation = 'softmax'))	
+	model.add(Dense(classes, activation = 'softmax'))	
 	return model
