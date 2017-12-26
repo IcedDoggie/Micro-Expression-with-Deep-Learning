@@ -5,8 +5,9 @@ def readinput (path, dB):
     inputList=sorted([f for f in os.listdir(path)])
     maxLength=max(len(infile) for infile in inputList)
     minLength=min(len(infile) for infile in inputList)
-    
-    
+    # print(inputList) 
+    # print("maxLength {: }".format(maxLength))
+    # print("minLength {: }".format(minLength))
     if maxLength == minLength:      
         seqList=[path + infile for infile in inputList]
 

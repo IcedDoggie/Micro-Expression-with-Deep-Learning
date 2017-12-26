@@ -35,7 +35,7 @@ from evaluationmatrix import fpr
 from utilities import Read_Input_Images, get_subfolders_num, data_loader_with_LOSO, label_matching, duplicate_channel
 from utilities import record_scores, loading_smic_table, loading_casme_table, ignore_casme_samples, ignore_casmergb_samples, LossHistory
 from utilities import loading_samm_table
-from models import VGG_16, temporal_module, modify_cam, VGG_16_4_channels
+from models import VGG_16, temporal_module, modify_cam, VGG_16_4_channels, convolutional_autoencoder
 
 
 def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_size, flag, tensorboard):
@@ -245,12 +245,16 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_siz
 		temporal_model = temporal_module(data_dim=data_dim, classes=classes, timesteps_TIM=timesteps_TIM)
 		temporal_model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=[metrics.categorical_accuracy])
 
+		conv_ae = convolutional_autoencoder(spatial_size = spatial_size, classes = classes)
+		conv_ae.compile(loss='binary_crossentropy', optimizer=adam, metrics=[metrics.categorical_accuracy])
+
 		if channel_flag == 1 or channel_flag == 2:
 			vgg_model = VGG_16_4_channels(classes=classes, spatial_size = spatial_size)
 			vgg_model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=[metrics.categorical_accuracy])
 		else:
 			vgg_model = VGG_16(spatial_size = spatial_size, classes=classes, weights_path='VGG_Face_Deep_16.h5')
 			vgg_model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=[metrics.categorical_accuracy])
+
 
 
 		svm_classifier = SVC(kernel='linear', C=1)
@@ -337,14 +341,18 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_siz
 				layer.trainable = False
 
 		if train_spatial_flag == 1 and train_temporal_flag == 1:
+			# Autoencoder features
+			conv_ae.fit(X, X, batch_size=batch_size, epochs=spatial_epochs, shuffle=True)
+
 			# trains encoder until fc, train temporal
-			
+
 			# Spatial Training
 			if tensorboard_flag == 1:
 				vgg_model.fit(X, y, batch_size=batch_size, epochs=spatial_epochs, shuffle=True, callbacks=[tbCallBack2])
 			else:
 				vgg_model.fit(X, y, batch_size=batch_size, epochs=spatial_epochs, shuffle=True, callbacks=[history, stopping])
 
+			
 			# record f1 and loss
 			file_loss = open(workplace+'Classification/'+ 'Result/'+dB+'/loss_' + str(train_id) +  '.txt', 'a')
 			file_loss.write(str(history.losses) + "\n")
@@ -358,9 +366,21 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_siz
 			model = Model(inputs=vgg_model.input, outputs=vgg_model.layers[35].output)
 			plot_model(model, to_file="spatial_module_FULL_TRAINING.png", show_shapes=True)	
 
+			model_ae = Model(inputs=conv_ae.input, outputs=conv_ae.output)
+			plot_model(model_ae, to_file='autoencoders.png', show_shapes=True)
+
+			# Autoencoding
+			output_ae = model_ae.predict(X, batch_size = batch_size)
+			output = model.predict(output_ae, batch_size = batch_size)
+
+
 			# Spatial Encoding
-			output = model.predict(X, batch_size = batch_size)
+			# output = model.predict(X, batch_size = batch_size)
 			features = output.reshape(int(Train_X.shape[0]), timesteps_TIM, output.shape[1])
+
+			# Combine features
+			# print(output_ae.shape)
+			# print(output.shape)
 			
 			# Temporal Training
 			if tensorboard_flag == 1:
