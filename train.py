@@ -14,6 +14,7 @@ from collections import Counter
 from sklearn.metrics import confusion_matrix
 import scipy.io as sio
 import pydot, graphviz
+from PIL import Image
 
 from keras.models import Sequential, Model
 from keras.utils import np_utils, plot_model
@@ -25,7 +26,7 @@ from keras.layers import Conv2D, MaxPooling2D
 from keras.preprocessing.sequence import pad_sequences
 from keras import optimizers
 from keras.applications.vgg16 import VGG16 as keras_vgg16
-from keras.preprocessing.image import ImageDataGenerator
+from keras.preprocessing.image import ImageDataGenerator, array_to_img
 import keras
 from keras.callbacks import EarlyStopping
 
@@ -200,7 +201,7 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_siz
 	elif train_spatial_flag == 0 and train_temporal_flag == 1 and dB == 'CASME2_Optical':
 		data_dim = spatial_size * spatial_size * 3
 	else:
-		data_dim = 4096
+		data_dim = 8192
 
 	########################################################
 
@@ -246,7 +247,7 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_siz
 		temporal_model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=[metrics.categorical_accuracy])
 
 		conv_ae = convolutional_autoencoder(spatial_size = spatial_size, classes = classes)
-		conv_ae.compile(loss='binary_crossentropy', optimizer=adam, metrics=[metrics.categorical_accuracy])
+		conv_ae.compile(loss='binary_crossentropy', optimizer=adam)
 
 		if channel_flag == 1 or channel_flag == 2:
 			vgg_model = VGG_16_4_channels(classes=classes, spatial_size = spatial_size)
@@ -255,10 +256,7 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_siz
 			vgg_model = VGG_16(spatial_size = spatial_size, classes=classes, weights_path='VGG_Face_Deep_16.h5')
 			vgg_model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=[metrics.categorical_accuracy])
 
-
-
 		svm_classifier = SVC(kernel='linear', C=1)
-
 		####################################################################################
 		
 		
@@ -285,16 +283,18 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_siz
 		
 		# Special Loading for 4-Channel
 		if channel_flag == 1:
-			Train_X_Strain, _, Test_X_Strain, _, _ = data_loader_with_LOSO(sub, SubperdB_strain, labelperSub, subjects)
+			Train_X_Strain, _, Test_X_Strain, _, _ = data_loader_with_LOSO(sub, SubperdB_strain, labelperSub, subjects, classes)
 			Train_X_Strain = Train_X_Strain.reshape(Train_X_Strain.shape[0]*timesteps_TIM, r, w, 1)
 			Test_X_Strain = Test_X_Strain.reshape(Test_X.shape[0]*timesteps_TIM, r, w, 1)
+		
 			# Concatenate Train X & Train_X_Strain
 			Train_X_spatial = np.concatenate((Train_X_spatial, Train_X_Strain), axis=3)
 			Test_X_spatial = np.concatenate((Test_X_spatial, Test_X_Strain), axis=3)
+
 			channel = 4
 
 		elif channel_flag == 2:
-			Train_X_Strain, _, Test_X_Strain, _, _ = data_loader_with_LOSO(sub, SubperdB_strain, labelperSub, subjects)
+			Train_X_Strain, _, Test_X_Strain, _, _ = data_loader_with_LOSO(sub, SubperdB_strain, labelperSub, subjects, classes)
 			Train_X_gray, _, Test_X_gray, _, _ = data_loader_with_LOSO(sub, SubperdB_gray, labelperSub, subjects)
 			Train_X_Strain = Train_X_Strain.reshape(Train_X_Strain.shape[0]*timesteps_TIM, r, w, 1)
 			Test_X_Strain = Test_X_Strain.reshape(Test_X_Strain.shape[0]*timesteps_TIM, r, w, 1)
@@ -327,11 +327,13 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_siz
 
 		X = Train_X_spatial.reshape(Train_X_spatial.shape[0], channel, r, w)
 		y = Train_Y_spatial.reshape(Train_Y_spatial.shape[0], classes)
+		normalized_X = X.astype('float32') / 255.
 
 		test_X = Test_X_spatial.reshape(Test_X_spatial.shape[0], channel, r, w)
 		test_y = Test_Y_spatial.reshape(Test_Y_spatial.shape[0], classes)
+		normalized_test_X = test_X.astype('float32') / 255.
 
-		print(X.shape)
+		# print(X.shape)
 
 		###### conv weights must be freezed for transfer learning ######
 		if finetuning_flag == 1:
@@ -342,7 +344,7 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_siz
 
 		if train_spatial_flag == 1 and train_temporal_flag == 1:
 			# Autoencoder features
-			conv_ae.fit(X, X, batch_size=batch_size, epochs=spatial_epochs, shuffle=True)
+			conv_ae.fit(normalized_X, normalized_X, batch_size=batch_size, epochs=spatial_epochs, shuffle=True)
 
 			# trains encoder until fc, train temporal
 
@@ -370,17 +372,27 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_siz
 			plot_model(model_ae, to_file='autoencoders.png', show_shapes=True)
 
 			# Autoencoding
-			output_ae = model_ae.predict(X, batch_size = batch_size)
-			output = model.predict(output_ae, batch_size = batch_size)
+			output_ae = model_ae.predict(normalized_X, batch_size = batch_size)
+
+			for i in range(batch_size):
+				visual_ae = output_ae[i].reshape(224,224,channel)
+				# de-normalize
+				visual_ae = ( ( visual_ae - min(visual_ae) ) / ( max(visual_ae) - min(visual_ae) ) ) * 255
+				fname = '{prefix}_{index}_{hash}.{format}'.format(prefix='AE_output', index=str(sub),
+				 												hash=np.random.randint(1e7), format='png')
+				cv2.imwrite(workplace+'Classification/Result/ae_train/'+fname, visual_ae)
+				
+			output_ae = model.predict(output_ae, batch_size = batch_size)
 
 
 			# Spatial Encoding
-			# output = model.predict(X, batch_size = batch_size)
-			features = output.reshape(int(Train_X.shape[0]), timesteps_TIM, output.shape[1])
+			output = model.predict(X, batch_size = batch_size)
+			# features = output.reshape(int(Train_X.shape[0]), timesteps_TIM, output.shape[1])
 
-			# Combine features
-			# print(output_ae.shape)
+			# merging autoencoded features and spatial features
+			output = np.concatenate((output, output_ae), axis=1)
 			# print(output.shape)
+			features = output.reshape(int(Train_X.shape[0]), timesteps_TIM, output.shape[1])
 			
 			# Temporal Training
 			if tensorboard_flag == 1:
@@ -392,7 +404,19 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_siz
 
 			# Testing
 			output = model.predict(test_X, batch_size = batch_size)
-			features = output.reshape(int(Test_X.shape[0]), timesteps_TIM, output.shape[1])
+			output_ae = model_ae.predict(normalized_test_X, batch_size = batch_size)
+			for i in range(batch_size):
+				visual_ae = output_ae[i].reshape(224,224,channel)
+				# de-normalize
+				visual_ae = ( ( visual_ae - min(visual_ae) ) / ( max(visual_ae) - min(visual_ae) ) ) * 255
+				fname = '{prefix}_{index}_{hash}.{format}'.format(prefix='AE_output', index=str(sub),
+				 												hash=np.random.randint(1e7), format='png')
+				cv2.imwrite(workplace+'Classification/Result/ae_train/'+fname, visual_ae)
+
+			output_ae = model.predict(output_ae, batch_size = batch_size)
+			output = np.concatenate((output, output_ae), axis=1)
+			features = output.reshape(Test_X.shape[0], timesteps_TIM, output.shape[1])
+
 			predict = temporal_model.predict_classes(features, batch_size=batch_size)
 
 

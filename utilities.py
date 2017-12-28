@@ -335,3 +335,4 @@ class LossHistory(keras.callbacks.Callback):
 	def on_epoch_end(self, epoch, logs={}):
 		self.losses.append(logs.get('loss'))
 		self.accuracy.append(logs.get('categorical_accuracy'))
+
