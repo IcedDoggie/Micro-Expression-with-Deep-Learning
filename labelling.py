@@ -9,39 +9,69 @@ def collectinglabel(Table, sub, videoName, workplace, db):
                 result = int(Table[0, counter, 1])
                 if result == 1: # negative
                     result = 0
+                    break
                 elif result == 2: # positive
                     result = 1
+                    break
                 elif result == 3: # surprise
                     result = 2
+                    break
                 # print("found: %s" % (videoName) )
-                break
+                # break
             counter += 1
-    elif db == "SAMM_TIM":
+    elif db == "SAMM_TIM10" or db == 'SAMM_Optical' or db == 'SAMM_Strain':
         counter = 0
         for var in ((Table[0, :, 0])):
             result = -1
+            # print(Table[0,counter, 1])
             if videoName == var or videoName in var:
                 result = (Table[0, counter, 1])
                 if result == 'Anger': # negative
                     result = 0
+                    break
                 elif result == 'Contempt': # positive
                     result = 1
+                    break
                 elif result == 'Disgust': # surprise
                     result = 2
+                    break
                 elif result == 'Fear': # surprise
                     result = 3
+                    break
                 elif result == 'Happiness': # surprise
                     result = 4
+                    break
                 elif result == 'Other': # surprise
                     result = 5
+                    break
                 elif result == 'Sadness': # surprise
                     result = 6
+                    break
                 elif result == 'Surprise': # surprise
-                    result = 7                    
+                    result = 7
+                    break                    
                 # print("found: %s" % (videoName) )
                 # print(result)
-                break
+                # break
             counter += 1
+
+    elif db == 'SAMM_CASME_Optical':
+        for var in range(len(Table[0, :, 0])):
+            result = -1
+
+            # for casme: sub[3:]
+            # for samm: sub
+            if videoName == Table[0, var, 1] and sub == Table[0, var, 0]:
+                result = Table[0, var, 2]
+                result -= 1
+                break
+            elif videoName == Table[0, var, 1] and sub[3:] == Table[0, var, 0]:
+                result = Table[0, var, 2]
+                result -= 1
+                break
+            
+ 
+                
 
     else:
 

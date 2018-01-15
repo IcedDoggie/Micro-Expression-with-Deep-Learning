@@ -99,6 +99,7 @@ def label_matching(workplace, dB, subjects, VidPerSubject):
 	labelperSub=[]
 	counter = 0
 	for sub in range(subjects):
+		# print(sub)
 		numVid=VidPerSubject[sub]
 		labelperSub.append(label[counter:counter+numVid])
 		counter = counter + numVid
@@ -128,6 +129,7 @@ def get_subfolders_num(path, IgnoredSamples_index):
 	for item in IgnoredSamples_index:
 		item = int(item)
 		folders_array[item] -= 1
+
 	# print(folders_array)
 	##################################################
 
@@ -135,6 +137,45 @@ def get_subfolders_num(path, IgnoredSamples_index):
 	folders_array = [int(i) for i in folders_array]
 	# print( "{:,} files, {:,} folders".format(files, folders) )
 	return folders_array
+
+def standard_data_loader(y_labels, subjects, classes):
+	Train_X = []
+	Train_Y = []
+
+
+
+	########### Leave-One-Subject-Out ###############
+	if subject==0:
+		for i in range(1,subjects):
+			Train_X.append(SubjectPerDatabase[i])
+			Train_Y.append(y_labels[i])
+	elif subject==subjects-1:
+		for i in range(subjects-1):
+			Train_X.append(SubjectPerDatabase[i])
+			Train_Y.append(y_labels[i])
+	else:
+		for i in range(subjects):
+			if subject == i:
+				continue
+			else:
+				Train_X.append(SubjectPerDatabase[i])
+				Train_Y.append(y_labels[i])	
+	##################################################
+	test_array = np.empty([0])
+	flag = 0
+
+
+	############ Conversion to numpy and stacking ###############
+	Train_X=np.vstack(Train_X)
+	Train_Y=np.hstack(Train_Y)
+	Train_Y=np_utils.to_categorical(Train_Y, classes)
+	#############################################################
+	print ("Train_X_shape: " + str(np.shape(Train_X)))
+	print ("Train_Y_shape: " + str(np.shape(Train_Y)))
+	print ("Test_X_shape: " + str(np.shape(Test_X)))	
+	print ("Test_Y_shape: " + str(np.shape(Test_Y)))	
+
+	return Train_X, Train_Y, Test_X, Test_Y, Test_Y_gt
 
 
 def data_loader_with_LOSO(subject, SubjectPerDatabase, y_labels, subjects, classes):
@@ -162,16 +203,19 @@ def data_loader_with_LOSO(subject, SubjectPerDatabase, y_labels, subjects, class
 				Train_X.append(SubjectPerDatabase[i])
 				Train_Y.append(y_labels[i])	
 	##################################################
+	test_array = np.empty([0])
+	flag = 0
 
-	############ Conversion to numpy and stacking ##############
-	Train_X=np.vstack(Train_X) 
+
+	############ Conversion to numpy and stacking ###############
+	Train_X=np.vstack(Train_X)
 	Train_Y=np.hstack(Train_Y)
 	Train_Y=np_utils.to_categorical(Train_Y, classes)
 	#############################################################
-	# print ("Train_X_shape: " + str(np.shape(Train_X)))
-	# print ("Train_Y_shape: " + str(np.shape(Train_Y)))
-	# print ("Test_X_shape: " + str(np.shape(Test_X)))	
-	# print ("Test_Y_shape: " + str(np.shape(Test_Y)))	
+	print ("Train_X_shape: " + str(np.shape(Train_X)))
+	print ("Train_Y_shape: " + str(np.shape(Train_Y)))
+	print ("Test_X_shape: " + str(np.shape(Test_X)))	
+	print ("Test_Y_shape: " + str(np.shape(Test_Y)))	
 
 	return Train_X, Train_Y, Test_X, Test_Y, Test_Y_gt
 
@@ -237,13 +281,46 @@ def loading_samm_labels(root_db_path, dB):
 
 	label_path = root_db_path + dB + "/" + label_filename
 	label_file = pd.read_excel(label_path, converters={'Subject': lambda x: str(x)})
+	# remove class 6, 7
+	label_file = label_file.ix[label_file['Objective Classes'] < 6]	
 
 	subject = label_file[['Subject']]
 	filename = label_file[['Filename']]
 	label = label_file[['Estimated Emotion']]
 	objective_classes = label_file[['Objective Classes']]
 	# print(label)
+
+
+
 	return subject, filename, label, objective_classes
+
+def loading_casme_labels(root_db_path, dB):
+	label_filename = 'CASME2-ObjectiveClasses.xlsx'
+
+	label_path = root_db_path + dB + "/" + label_filename
+	label_file = pd.read_excel(label_path, converters={'Subject': lambda x: str(x)})
+
+	# remove class 6, 7
+	label_file = label_file.ix[label_file['Objective Class'] < 6]
+	# print(len(label_file)) # 185 samples
+
+	subject = label_file[['Subject']]
+	filename = label_file[['Filename']]
+	objective_classes = label_file[['Objective Class']]
+
+	return subject, filename, objective_classes
+
+
+def loading_casme_objective_table(root_db_path, dB):
+	subject, filename, objective_classes = loading_casme_labels(root_db_path, dB)
+	
+	subject = subject.as_matrix()
+	filename = filename.as_matrix()
+	objective_classes = objective_classes.as_matrix()
+
+	table = np.transpose( np.array( [subject, filename, objective_classes] ) )
+
+	return table
 
 
 
@@ -257,7 +334,9 @@ def loading_casme_table(xcel_path):
 	colm=ws.col_slice(colx=6,start_rowx=1,end_rowx=None)
 	expression=[str(x.value) for x in colm]
 	table=np.transpose(np.array([np.array(iD),np.array(vidName),np.array(expression)],dtype=str))	
+	# print(table)
 	return table
+
 
 def loading_smic_table(root_db_path, dB):
 	subject, filename, label, num_frames = loading_smic_labels(root_db_path, dB)
@@ -267,17 +346,38 @@ def loading_smic_table(root_db_path, dB):
 	table = np.transpose( np.array( [filename, label] ) )	
 	return table	
 
+
 def loading_samm_table(root_db_path, dB):	
 	subject, filename, label, objective_classes = loading_samm_labels(root_db_path, dB)
 	# print("subject:%s filename:%s label:%s objective_classes:%s" %(subject, filename, label, objective_classes))
+	subject = subject.as_matrix()
 	filename = filename.as_matrix()
 	label = label.as_matrix()
 	objective_classes = objective_classes.as_matrix()
-
 	table = np.transpose( np.array( [filename, label] ) )
-	table_objective = np.transpose( np.array( [filename, objective_classes] ) )
+	table_objective = np.transpose( np.array( [subject, filename, objective_classes] ) )
 	# print(table)
 	return table, table_objective
+
+def filter_objective_samples(table): # this is to filter data with objective classes which is 1-5, omitting 6 and 7
+	list_samples = []
+	sub = table[0, :, 0]
+	vid = table[0, :, 1]
+	# print(sub)
+	# print(vid)
+
+	for count in range(len(sub)):
+		pathname = 0
+		if len(sub[count]) == 2:
+			pathname = "sub" + sub[count] + "/" + vid[count]
+		else:
+			pathname = sub[count] + "/" + vid[count]
+		# pathname = inputDir + pathname
+		list_samples += [pathname]
+
+	# print(list_samples)
+
+	return list_samples
 
 def ignore_casme_samples(inputDir):
 	# ignored due to:
@@ -285,7 +385,7 @@ def ignore_casme_samples(inputDir):
 	# 2) fear, sadness are excluded due to too little data, see CASME2 paper for more
 	IgnoredSamples = ['sub09/EP13_02/','sub09/EP02_02f/','sub10/EP13_01/','sub17/EP15_01/',
 						'sub17/EP15_03/','sub19/EP19_04/','sub24/EP10_03/','sub24/EP07_01/',
-						'sub24/EP07_04f/','sub24/EP02_07/','sub26/EP15_01/', ]
+						'sub24/EP07_04f/','sub24/EP02_07/','sub26/EP15_01/' ]
 	# IgnoredSamples = ['sub09/EP02_02f/', 'sub24/EP02_07/']
 
 	listOfIgnoredSamples=[]
@@ -296,13 +396,17 @@ def ignore_casme_samples(inputDir):
 			listOfIgnoredSamples.append(inputDir+IgnoredSamples[s])
 	### Get index of samples to be ignored in terms of subject id ###
 	IgnoredSamples_index = np.empty([0])
+	sub_items = np.empty([0])
 	for item in IgnoredSamples:
+		sub_item = item.split('/', 1)[0]
+		sub_items = np.append(sub_items, sub_item)
 		item = item.split('sub', 1)[1]
+		# print(sub_item)
 		item = int(item.split('/', 1)[0]) - 1 
 		IgnoredSamples_index = np.append(IgnoredSamples_index, item)
 
 
-	return listOfIgnoredSamples, IgnoredSamples_index
+	return listOfIgnoredSamples, IgnoredSamples_index, sub_items
 
 def ignore_casmergb_samples(inputDir): # not a universal function, only specific to casme2_tim and derived data from casme2_tim
 	# ignored due to:

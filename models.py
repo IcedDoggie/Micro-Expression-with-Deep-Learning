@@ -216,7 +216,7 @@ def modify_cam(model, classes):
 def convolutional_autoencoder(spatial_size, classes, weights_path=None):
 	model = Sequential()
 	# encoder
-	model.add(Conv2D(128, (3, 3), activation='relu', input_shape=(4, spatial_size, spatial_size), padding='same'))
+	model.add(Conv2D(128, (3, 3), activation='relu', input_shape=(3, spatial_size, spatial_size), padding='same'))
 	model.add(MaxPooling2D( pool_size=(2, 2), strides=2, padding='same' ))
 	model.add(Conv2D(64, (3, 3), activation='relu', padding='same'))
 	model.add(MaxPooling2D( pool_size=(2, 2), strides=2, padding='same' ))
@@ -230,7 +230,7 @@ def convolutional_autoencoder(spatial_size, classes, weights_path=None):
 	model.add(UpSampling2D(2))	
 	model.add(Conv2D(128, (3, 3), activation='relu', padding='same'))
 	model.add(UpSampling2D(2))
-	model.add(Conv2D(4, (3, 3), activation='sigmoid', padding='same'))
+	model.add(Conv2D(3, (3, 3), activation='sigmoid', padding='same'))
 
 
 	return model

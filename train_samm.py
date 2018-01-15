@@ -35,11 +35,12 @@ from reordering import readinput
 from evaluationmatrix import fpr
 from utilities import Read_Input_Images, get_subfolders_num, data_loader_with_LOSO, label_matching, duplicate_channel
 from utilities import record_scores, loading_smic_table, loading_casme_table, ignore_casme_samples, ignore_casmergb_samples, LossHistory
-from utilities import loading_samm_table
+from utilities import loading_samm_table, loading_casme_objective_table, filter_objective_samples
+from samm_utilitis import get_subfolders_num_crossdb, Read_Input_Images_SAMM_CASME, loading_samm_labels
 from models import VGG_16, temporal_module, modify_cam, VGG_16_4_channels, convolutional_autoencoder
 
 
-def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_size, flag, tensorboard):
+def train_samm(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_size, flag, tensorboard):
 	############## Path Preparation ######################
 	root_db_path = "/media/ice/OS/Datasets/"
 	workplace = root_db_path + dB + "/"
@@ -47,13 +48,12 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_siz
 	######################################################
 	classes = 5
 	if dB == 'CASME2_TIM':
-		table = loading_casme_table(workplace + 'CASME2_label_Ver_2.xls')
+		table = loading_casme_table(workplace + 'CASME2-ObjectiveClasses.xlsx')
 		listOfIgnoredSamples, IgnoredSamples_index = ignore_casme_samples(inputDir)
 
 		############## Variables ###################
 		r = w = spatial_size
 		subjects=2
-		samples = 246
 		n_exp = 5
 		# VidPerSubject = get_subfolders_num(inputDir, IgnoredSamples_index)
 		listOfIgnoredSamples = []
@@ -69,13 +69,12 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_siz
 
 
 	elif dB == 'CASME2_Optical':
-		table = loading_casme_table(workplace + 'CASME2_label_Ver_2.xls')
-		listOfIgnoredSamples, IgnoredSamples_index, _ = ignore_casme_samples(inputDir)
+		table = loading_casme_table(workplace + 'CASME2-ObjectiveClasses.xlsx')
+		listOfIgnoredSamples, IgnoredSamples_index = ignore_casme_samples(inputDir)
 
 		############## Variables ###################
 		r = w = spatial_size
 		subjects=26
-		samples = 246
 		n_exp = 5
 		VidPerSubject = get_subfolders_num(inputDir, IgnoredSamples_index)
 		timesteps_TIM = 9
@@ -86,57 +85,6 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_siz
 
 		# os.remove(workplace + "Classification/CASME2_TIM_label.txt")
 
-	elif dB == 'CASME2_RGB':
-		# print(inputDir)
-		table = loading_casme_table(workplace + 'CASME2_RGB/CASME2_label_Ver_2.xls')
-		listOfIgnoredSamples, IgnoredSamples_index = ignore_casmergb_samples(inputDir)
-		############## Variables ###################
-		r = w = spatial_size
-		subjects=26
-		samples = 245 # not used, delete it later
-		n_exp = 5
-		VidPerSubject = get_subfolders_num(inputDir, IgnoredSamples_index)
-		timesteps_TIM = 10
-		data_dim = r * w 
-		pad_sequence = 10
-		channel = 3
-		############################################
-
-	elif dB == 'SMIC_TIM10':
-		table = loading_smic_table(root_db_path, dB)
-		listOfIgnoredSamples = []
-		IgnoredSamples_index = np.empty([0])
-
-		################# Variables #############################
-		r = w = spatial_size
-		subjects = 16
-		samples = 164
-		n_exp = 3
-		VidPerSubject = get_subfolders_num(inputDir, IgnoredSamples_index)
-		timesteps_TIM = 10
-		data_dim = r * w
-		pad_sequence = 10
-		channel = 1
-		classes = 3
-		#########################################################
-
-	elif dB == 'SAMM_Optical':
-		table, table_objective = loading_samm_table(root_db_path, dB)
-		listOfIgnoredSamples = []
-		IgnoredSamples_index = np.empty([0])
-
-		################# Variables #############################
-		r = w = spatial_size
-		subjects = 29
-		samples = 159
-		n_exp = 8
-		VidPerSubject = get_subfolders_num(inputDir, IgnoredSamples_index)
-		timesteps_TIM = 9
-		data_dim = r * w
-		pad_sequence = 10
-		channel = 3
-		classes = 8
-		#########################################################	
 
 	elif dB == 'SAMM_TIM10':
 		table, table_objective = loading_samm_table(root_db_path, dB)
@@ -146,7 +94,6 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_siz
 		################# Variables #############################
 		r = w = spatial_size
 		subjects = 29
-		samples = 159
 		n_exp = 8
 		VidPerSubject = get_subfolders_num(inputDir, IgnoredSamples_index)
 		timesteps_TIM = 10
@@ -154,10 +101,45 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_siz
 		pad_sequence = 10
 		channel = 3
 		classes = 8
-		#########################################################			
+		#########################################################		
 
+	elif dB == 'SAMM_CASME_Optical':
+		# total amount of videos 253
+		table, table_objective = loading_samm_table(root_db_path, dB)
+		table = table_objective
+		table2 = loading_casme_objective_table(root_db_path, dB)
 
-	# print(VidPerSubject)
+		# merge samm and casme tables
+		table = np.concatenate((table, table2), axis=1)
+		
+		# print(table.shape)
+
+		# listOfIgnoredSamples, IgnoredSamples_index, sub_items = ignore_casme_samples(inputDir)
+		listOfIgnoredSamples = []
+		IgnoredSamples_index = np.empty([0])
+		sub_items = np.empty([0])
+		list_samples = filter_objective_samples(table)
+
+		r = w = spatial_size
+		subjects = 47 # some subjects were removed because of objective classes and ignore samples: 47
+		n_exp = 5
+		# TODO:
+		# 1) Further decrease the video amount, the one with objective classes >= 6
+		# list samples: samples with wanted objective class
+		VidPerSubject, list_samples = get_subfolders_num_crossdb(inputDir, IgnoredSamples_index, sub_items, table, list_samples)
+
+		# print(VidPerSubject)
+		# print(len(VidPerSubject))
+		# print(sum(VidPerSubject))
+		timesteps_TIM = 9
+		data_dim = r * w
+		channel = 3
+		classes = 5
+		if os.path.isfile(workplace + "Classification/SAMM_CASME_Optical_label.txt"):
+			os.remove(workplace + "Classification/SAMM_CASME_Optical_label.txt")
+		##################### Variables ######################
+
+		######################################################
 
 	############## Flags ####################
 	tensorboard_flag = tensorboard
@@ -196,10 +178,13 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_siz
 
 
 	############ Reading Images and Labels ################
-	SubperdB = Read_Input_Images(inputDir, listOfIgnoredSamples, dB, resizedFlag, table, workplace, spatial_size, channel)
+
+	SubperdB = Read_Input_Images_SAMM_CASME(inputDir, list_samples, listOfIgnoredSamples, dB, resizedFlag, table, workplace, spatial_size, channel)
 	print("Loaded Images into the tray...")
 	labelperSub = label_matching(workplace, dB, subjects, VidPerSubject)
 	print("Loaded Labels into the tray...")
+
+
 
 	if channel_flag == 1:
 		SubperdB_strain = Read_Input_Images(inputDir, listOfIgnoredSamples, 'CASME2_Strain_TIM10', resizedFlag, table, workplace, spatial_size, 1)
@@ -212,6 +197,7 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_siz
 	########### Model Configurations #######################
 	sgd = optimizers.SGD(lr=0.0001, decay=1e-7, momentum=0.9, nesterov=True)
 	adam = optimizers.Adam(lr=0.00001, decay=0.000001)
+	adam2 = optimizers.Adam(lr= 0.00075, decay= 0.0001)
 
 	# Different Conditions for Temporal Learning ONLY
 	if train_spatial_flag == 0 and train_temporal_flag == 1 and dB != 'CASME2_Optical':
@@ -219,39 +205,20 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_siz
 	elif train_spatial_flag == 0 and train_temporal_flag == 1 and dB == 'CASME2_Optical':
 		data_dim = spatial_size * spatial_size * 3
 	else:
-		data_dim = 8192
+		data_dim = 4096
 
 	########################################################
 
 
-	########### Image Data Generator ##############
-	image_generator = ImageDataGenerator(
-		zca_whitening = True,
-		rotation_range = 0.2,
-		width_shift_range = 0.2,
-		height_shift_range = 0.2, 
-		zoom_range = 0.2,
-		horizontal_flip = True,
-		rescale = 1.5)
-	###############################################
-
 	########### Training Process ############
-	# Todo:
-	# 1) LOSO (done)
-	# 2) call model (done)
-	# 3) saving model architecture 
-	# 4) Saving Checkpoint (done)
-	# 5) make prediction (done)
-	if tensorboard_flag == 1:
-		tensorboard_path = "/home/ice/Documents/Micro-Expression/tensorboard/"
+
 
 	# total confusion matrix to be used in the computation of f1 score
 	tot_mat = np.zeros((n_exp,n_exp))
 
 	# model checkpoint
-	spatial_weights_name = 'vgg_spatial_'+ str(train_id) + '_' + str(dB) + '_'
-	temporal_weights_name = 'temporal_ID_' + str(train_id) + '_' + str(dB) + '_'
-	ae_weights_name = 'autoencoder_' + str(train_id) + '_' + str(dB) + '_'
+	spatial_weights_name = 'vgg_spatial_'+ str(train_id) + '_casme2_'
+	temporal_weights_name = 'temporal_ID_' + str(train_id) + '_casme2_'
 	history = LossHistory()
 	stopping = EarlyStopping(monitor='loss', min_delta = 0, mode = 'min')
 
@@ -342,8 +309,6 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_siz
 		# print(Train_X_spatial)
 		##################### Training & Testing #########################
 
-		# print(Train_X_spatial.shape)	
-
 		X = Train_X_spatial.reshape(Train_X_spatial.shape[0], channel, r, w)
 		y = Train_Y_spatial.reshape(Train_Y_spatial.shape[0], classes)
 		normalized_X = X.astype('float32') / 255.
@@ -363,9 +328,7 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_siz
 
 		if train_spatial_flag == 1 and train_temporal_flag == 1:
 			# Autoencoder features
-			conv_ae.fit(normalized_X, normalized_X, batch_size=batch_size, epochs=spatial_epochs, shuffle=True)
-
-			# trains encoder until fc, train temporal
+			# conv_ae.fit(normalized_X, normalized_X, batch_size=batch_size, epochs=spatial_epochs, shuffle=True)
 
 			# Spatial Training
 			if tensorboard_flag == 1:
@@ -437,102 +400,6 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_siz
 			features = output.reshape(Test_X.shape[0], timesteps_TIM, output.shape[1])
 
 			predict = temporal_model.predict_classes(features, batch_size=batch_size)
-
-
-		elif train_spatial_flag == 1 and train_temporal_flag == 0 and cam_visualizer_flag == 0:
-			# trains spatial module ONLY, no escape
-			
-			image_generator.fit(X)
-			vgg_model.fit_generator(image_generator.flow(X, y, batch_size=batch_size,
-			 save_to_dir="./augmented/", save_format='png', save_prefix='augmented_me'),
-			  steps_per_epoch=len(X)/batch_size, epochs=spatial_epochs)
-			
-			# Spatial Training
-			if tensorboard_flag == 1:
-				vgg_model.fit(X, y, batch_size=batch_size, epochs=spatial_epochs, shuffle=True, callbacks=[tbCallBack2])
-			else:
-				vgg_model.fit(X, y, batch_size=batch_size, epochs=spatial_epochs, shuffle=True)
-
-			vgg_model.save_weights(spatial_weights_name + str(sub) + ".h5")
-			plot_model(vgg_model, to_file="spatial_module_ONLY.png", show_shapes=True)
-
-
-
-
-			# Testing
-			# predict = vgg_model.predict_classes(test_X, batch_size = batch_size)
-			# Test_Y_gt = np.repeat(Test_Y_gt, timesteps_TIM, axis=0)
-
-			# For Majority Vote (make batch size divisible by 10(TIM No.))
-			predict = vgg_model.predict_classes(test_X, batch_size = batch_size)
-			voted_predict = []
-			i = 0
-			while i < int(len(predict)/timesteps_TIM) - 1:
-				fraction_of_predict = predict[i * timesteps_TIM : (i+1) * timesteps_TIM]
-				# print(fraction_of_predict)
-				fraction_of_predict = np.asarray(fraction_of_predict)
-				frequencies = np.bincount(fraction_of_predict)
-				highest_frequency = np.argmax(frequencies)
-				voted_predict += [highest_frequency]
-
-				i += 1
-				if i+1 >= int(len(predict)/timesteps_TIM) :
-					fraction_of_predict = predict[(i) * timesteps_TIM : len(predict)]
-					fraction_of_predict = np.asarray(fraction_of_predict)
-					frequencies = np.bincount(fraction_of_predict)
-					highest_frequency = np.argmax(frequencies)
-					voted_predict += [highest_frequency]					
-
-			# print(voted_predict)
-			predict = voted_predict	
-
-		elif train_spatial_flag == 0 and train_temporal_flag == 1:
-			# trains temporal module ONLY.
-
-			# Temporal Training
-			if tensorboard_flag == 1:
-				temporal_model.fit(Train_X, Train_Y, batch_size=batch_size, epochs=temporal_epochs, callbacks=[tbCallBack])
-			else:
-				temporal_model.fit(Train_X, Train_Y, batch_size=batch_size, epochs=temporal_epochs)	
-				# temporal_model.train_on_batch(Train_X, Train_Y)
-			temporal_model.save_weights(temporal_weights_name + str(sub) + ".h5")
-
-			# Testing
-			predict = temporal_model.predict_classes(Test_X, batch_size = batch_size)
-
-		elif svm_flag == 1 and finetuning_flag == 0:
-			# no finetuning
-
-			X = vgg_model.predict(X, batch_size=batch_size)
-			y_for_svm = np.argmax(y, axis=1)
-
-			svm_classifier.fit(X, y_for_svm)
-
-			test_X = vgg_model.predict(test_X, batch_size=batch_size)
-			predict = svm_classifier.predict(test_X)
-
-			Test_Y_gt = np.repeat(Test_Y_gt, timesteps_TIM, axis=0)
-
-		elif train_spatial_flag == 1 and train_temporal_flag == 0 and cam_visualizer_flag == 1:
-			# trains spatial module & CAM ONLY
-			
-			# modify model for CAM
-			vgg_model_cam = modify_cam(vgg_model_cam)
-			vgg_model_cam.compile(loss = 'categorical_crossentropy', optimizer = adam, metrics = [metrics.categorical_accuracy])
-
-
-			# Spatial Training
-			if tensorboard_flag == 1:
-				vgg_model_cam.fit(X, y, batch_size=batch_size, epochs=spatial_epochs, shuffle=True, callbacks=[tbCallBack2])
-			else:
-				vgg_model_cam.fit(X, y, batch_size=batch_size, epochs=spatial_epochs, shuffle=True)
-
-			vgg_model_cam.save_weights(spatial_weights_name + str(sub) + ".h5")
-			plot_model(vgg_model_cam, to_file="spatial_module_CAM_ONLY.png", show_shapes=True)
-
-			# Testing
-			predict = vgg_model_cam.predict_classes(test_X, batch_size = batch_size)		
-
 
 		##############################################################
 
