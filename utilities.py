@@ -138,33 +138,18 @@ def get_subfolders_num(path, IgnoredSamples_index):
 	# print( "{:,} files, {:,} folders".format(files, folders) )
 	return folders_array
 
-def standard_data_loader(y_labels, subjects, classes):
+def standard_data_loader(SubjectPerDatabase, y_labels, subjects, classes):
 	Train_X = []
 	Train_Y = []
+	Test_Y_gt = np.empty([0])
+	for subject in range((subjects)):
 
+		Train_X.append(SubjectPerDatabase[subject])
+		Train_Y.append(y_labels[subject])
+		Test_Y_gt = np.append(Test_Y_gt, y_labels[subject])
+	# print(Train_Y)
 
-
-	########### Leave-One-Subject-Out ###############
-	if subject==0:
-		for i in range(1,subjects):
-			Train_X.append(SubjectPerDatabase[i])
-			Train_Y.append(y_labels[i])
-	elif subject==subjects-1:
-		for i in range(subjects-1):
-			Train_X.append(SubjectPerDatabase[i])
-			Train_Y.append(y_labels[i])
-	else:
-		for i in range(subjects):
-			if subject == i:
-				continue
-			else:
-				Train_X.append(SubjectPerDatabase[i])
-				Train_Y.append(y_labels[i])	
-	##################################################
-	test_array = np.empty([0])
-	flag = 0
-
-
+	# print(Test_Y_gt)
 	############ Conversion to numpy and stacking ###############
 	Train_X=np.vstack(Train_X)
 	Train_Y=np.hstack(Train_Y)
@@ -172,10 +157,9 @@ def standard_data_loader(y_labels, subjects, classes):
 	#############################################################
 	print ("Train_X_shape: " + str(np.shape(Train_X)))
 	print ("Train_Y_shape: " + str(np.shape(Train_Y)))
-	print ("Test_X_shape: " + str(np.shape(Test_X)))	
-	print ("Test_Y_shape: " + str(np.shape(Test_Y)))	
 
-	return Train_X, Train_Y, Test_X, Test_Y, Test_Y_gt
+
+	return Train_X, Train_Y, Test_Y_gt
 
 
 def data_loader_with_LOSO(subject, SubjectPerDatabase, y_labels, subjects, classes):
@@ -203,8 +187,6 @@ def data_loader_with_LOSO(subject, SubjectPerDatabase, y_labels, subjects, class
 				Train_X.append(SubjectPerDatabase[i])
 				Train_Y.append(y_labels[i])	
 	##################################################
-	test_array = np.empty([0])
-	flag = 0
 
 
 	############ Conversion to numpy and stacking ###############
