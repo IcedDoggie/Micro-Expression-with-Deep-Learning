@@ -36,126 +36,18 @@ from evaluationmatrix import fpr
 from utilities import Read_Input_Images, get_subfolders_num, data_loader_with_LOSO, label_matching, duplicate_channel
 from utilities import record_scores, loading_smic_table, loading_casme_table, ignore_casme_samples, ignore_casmergb_samples, LossHistory
 from utilities import loading_samm_table
+from list_databases import load_db
 from models import VGG_16, temporal_module, modify_cam, VGG_16_4_channels, convolutional_autoencoder
 
 
 def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_size, flag, tensorboard):
 	############## Path Preparation ######################
-	root_db_path = "/media/ice/OS/Datasets/"
+	db_path = "/media/ice/OS/Datasets/"
 	workplace = root_db_path + dB + "/"
 	inputDir = root_db_path + dB + "/" + dB + "/" 
 	######################################################
-	classes = 5
-	if dB == 'CASME2_TIM':
-		table = loading_casme_table(workplace + 'CASME2_label_Ver_2.xls')
-		listOfIgnoredSamples, IgnoredSamples_index = ignore_casme_samples(inputDir)
 
-		############## Variables ###################
-		r = w = spatial_size
-		subjects=2
-		samples = 246
-		n_exp = 5
-		# VidPerSubject = get_subfolders_num(inputDir, IgnoredSamples_index)
-		listOfIgnoredSamples = []
-		VidPerSubject = [2,1]
-		timesteps_TIM = 10
-		data_dim = r * w
-		pad_sequence = 10
-		channel = 3
-		############################################		
-
-		os.remove(workplace + "Classification/CASME2_TIM_label.txt")
-
-
-
-	elif dB == 'CASME2_Optical':
-		table = loading_casme_table(workplace + 'CASME2_label_Ver_2.xls')
-		listOfIgnoredSamples, IgnoredSamples_index, _ = ignore_casme_samples(inputDir)
-
-		############## Variables ###################
-		r = w = spatial_size
-		subjects=26
-		samples = 246
-		n_exp = 5
-		VidPerSubject = get_subfolders_num(inputDir, IgnoredSamples_index)
-		timesteps_TIM = 9
-		data_dim = r * w
-		pad_sequence = 9
-		channel = 3
-		############################################		
-
-		# os.remove(workplace + "Classification/CASME2_TIM_label.txt")
-
-	elif dB == 'CASME2_RGB':
-		# print(inputDir)
-		table = loading_casme_table(workplace + 'CASME2_RGB/CASME2_label_Ver_2.xls')
-		listOfIgnoredSamples, IgnoredSamples_index = ignore_casmergb_samples(inputDir)
-		############## Variables ###################
-		r = w = spatial_size
-		subjects=26
-		samples = 245 # not used, delete it later
-		n_exp = 5
-		VidPerSubject = get_subfolders_num(inputDir, IgnoredSamples_index)
-		timesteps_TIM = 10
-		data_dim = r * w 
-		pad_sequence = 10
-		channel = 3
-		############################################
-
-	elif dB == 'SMIC_TIM10':
-		table = loading_smic_table(root_db_path, dB)
-		listOfIgnoredSamples = []
-		IgnoredSamples_index = np.empty([0])
-
-		################# Variables #############################
-		r = w = spatial_size
-		subjects = 16
-		samples = 164
-		n_exp = 3
-		VidPerSubject = get_subfolders_num(inputDir, IgnoredSamples_index)
-		timesteps_TIM = 10
-		data_dim = r * w
-		pad_sequence = 10
-		channel = 1
-		classes = 3
-		#########################################################
-
-	elif dB == 'SAMM_Optical':
-		table, table_objective = loading_samm_table(root_db_path, dB)
-		listOfIgnoredSamples = []
-		IgnoredSamples_index = np.empty([0])
-
-		################# Variables #############################
-		r = w = spatial_size
-		subjects = 29
-		samples = 159
-		n_exp = 8
-		VidPerSubject = get_subfolders_num(inputDir, IgnoredSamples_index)
-		timesteps_TIM = 9
-		data_dim = r * w
-		pad_sequence = 10
-		channel = 3
-		classes = 8
-		#########################################################	
-
-	elif dB == 'SAMM_TIM10':
-		table, table_objective = loading_samm_table(root_db_path, dB)
-		listOfIgnoredSamples = []
-		IgnoredSamples_index = np.empty([0])
-
-		################# Variables #############################
-		r = w = spatial_size
-		subjects = 29
-		samples = 159
-		n_exp = 8
-		VidPerSubject = get_subfolders_num(inputDir, IgnoredSamples_index)
-		timesteps_TIM = 10
-		data_dim = r * w
-		pad_sequence = 10
-		channel = 3
-		classes = 8
-		#########################################################			
-
+	r, w, subjects, samples, n_exp, VidPerSubject, timesteps_TIM, timesteps_TIM, data_dim, channel, table, listOfIgnoredSamples = load_db(db_path, dB, spatial_size)
 
 	############## Flags ####################
 	tensorboard_flag = tensorboard
@@ -181,14 +73,23 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_siz
 	elif flag == 'scratch':
 		train_spatial_flag = 1
 		train_temporal_flag = 1
-	elif flag == 'st4':
+	elif flag == 'st4se':
 		train_spatial_flag = 1
 		train_temporal_flag = 1
 		channel_flag = 1
-	elif flag == 'st7':
+	elif flag == 'st7se':
 		train_spatial_flag = 1
 		train_temporal_flag = 1
 		channel_flag = 2
+	elif flag == 'st4te':
+		train_spatial_flag = 1
+		train_temporal_flag = 1
+		channel_flag = 3
+	elif flag == 'st7te':
+		train_spatial_flag = 1
+		train_temporal_flag = 1
+		channel_flag = 4
+
 	#########################################
 
 	############ Reading Images and Labels ################
@@ -200,7 +101,7 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_siz
 	if channel_flag == 1:
 		SubperdB_strain = Read_Input_Images(inputDir, listOfIgnoredSamples, 'CASME2_Strain_TIM10', resizedFlag, table, workplace, spatial_size, 1)
 	elif channel_flag == 2:
-		SubperdB_strain = Read_Input_Images(inputDir, listOfIgnoredSamples, 'CASME2_Strain_TIM10', resizedFlag, table, workplace, spatial_size, 1)
+		SubperdB_strain = Read_Input_Images(inputDir, listOfIgnoredSamples, 'CASME2_TIM_Strain_TIM10', resizedFlag, table, workplace, spatial_size, 1)
 		SubperdB_gray = Read_Input_Images(inputDir, listOfIgnoredSamples, 'CASME2_TIM', resizedFlag, table, workplace, spatial_size, 3)		
 	#######################################################
 
@@ -220,16 +121,7 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_siz
 	########################################################
 
 
-	########### Image Data Generator ##############
-	image_generator = ImageDataGenerator(
-		zca_whitening = True,
-		rotation_range = 0.2,
-		width_shift_range = 0.2,
-		height_shift_range = 0.2, 
-		zoom_range = 0.2,
-		horizontal_flip = True,
-		rescale = 1.5)
-	###############################################
+
 
 	########### Training Process ############
 	# Todo:
