@@ -9,6 +9,7 @@ import cv2
 import pandas as pd
 import os
 import glob
+import matplotlib.pyplot as plt
 
 from sklearn.svm import SVC
 from collections import Counter
@@ -27,71 +28,65 @@ import keras
 from labelling import collectinglabel
 from reordering import readinput
 from evaluationmatrix import fpr
+import itertools
 
 
 
 def Read_Input_Images(inputDir, listOfIgnoredSamples, dB, resizedFlag, table, workplace, spatial_size, channel):
 	# r=224; w=224
-	r=w=spatial_size	
-	SubperdB=[]
+	r = w = spatial_size	
+	SubperdB = []
 
 	# cross-checking parameter
-	
 	subperdb_id = []
 
 	for sub in sorted([infile for infile in os.listdir(inputDir)]):
-			VidperSub=[] 
-			vid_id = np.empty([0])       
+		VidperSub = [] 
+		vid_id = np.empty([0])       
 
-			for vid in sorted([inrfile for inrfile in os.listdir(inputDir+sub)]):
+		for vid in sorted([inrfile for inrfile in os.listdir(inputDir+sub)]):
 				
-				path=inputDir + sub + '/'+ vid + '/'
-				if path in listOfIgnoredSamples:
-					continue
-				# print(dB)
-				# print(path)
-				imgList=readinput(path,dB)
-			  
-				numFrame=len(imgList)
+			path = inputDir + sub + '/' + vid + '/' # image loading path
+			if path in listOfIgnoredSamples:
+				continue
 
-				if resizedFlag ==1:
-					col=w
-					row=r
-				else:
-					img=cv2.imread(imgList[0])
-					[row,col,_l]=img.shape
-	##            ##read the label for each input video
+			imgList = readinput(path,dB)  
+			numFrame = len(imgList)
+
+			if resizedFlag == 1:
+				col = w
+				row = r
+			else:
+				img = cv2.imread(imgList[0])
+				[row,col,_l] = img.shape
+	        ## read the label for each input video
 				
-				collectinglabel(table, sub[3:], vid, workplace+'Classification/', dB)
+			collectinglabel(table, sub[3:], vid, workplace+'Classification/', dB)
 
 
-				for var in range(numFrame):
-					img=cv2.imread(imgList[var])
+			for var in range(numFrame):
+				img = cv2.imread(imgList[var])
 					
-					[_,_,dim]=img.shape
+				[_,_,dim] = img.shape
 					
-					if channel == 1:
+				if channel == 1:
+					img = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
 
-						img=cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
-
-					if resizedFlag ==1:
-						#in resize function, [col,row]
-						img=cv2.resize(img,(col,row))
+				if resizedFlag == 1:
+					img = cv2.resize(img,(col,row))
 						
 			
-					if var==0:
-						FrameperVid=img.flatten()
-					else:
-						FrameperVid=np.vstack((FrameperVid,img.flatten()))
+				if var == 0:
+					FrameperVid = img.flatten()
+				else:
+					FrameperVid = np.vstack((FrameperVid,img.flatten()))
 					
-					vid_id = np.append(vid_id, imgList[var]) # <--cross-check
-				VidperSub.append(FrameperVid)       
+				vid_id = np.append(vid_id, imgList[var]) # <--cross-check
+			VidperSub.append(FrameperVid)       
 	
-			subperdb_id.append(vid_id)# <--cross-check
-			# print(subperdb_id[0])
-			SubperdB.append(VidperSub)	
+		subperdb_id.append(vid_id)# <--cross-check
+		SubperdB.append(VidperSub)	
 
-	# return SubperdB, vid_id, subperdb_id
 	return SubperdB
 
 def label_matching(workplace, dB, subjects, VidPerSubject):
@@ -369,13 +364,20 @@ def ignore_casme_samples(inputDir):
 						'sub17/EP15_03/','sub19/EP19_04/','sub24/EP10_03/','sub24/EP07_01/',
 						'sub24/EP07_04f/','sub24/EP02_07/','sub26/EP15_01/' ]
 	# IgnoredSamples = ['sub09/EP02_02f/', 'sub24/EP02_07/']
-
+	inputDir2 = "/media/ice/OS/Datasets/" + 'CASME2_Strain_TIM10' + '/' + 'CASME2_Strain_TIM10' + '/'
+	inputDir3 = "/media/ice/OS/Datasets/" + 'CASME2_TIM' + '/' + 'CASME2_TIM' + "/"
 	listOfIgnoredSamples=[]
 	for s in range(len(IgnoredSamples)):
 		if s==0:
 			listOfIgnoredSamples=[inputDir+IgnoredSamples[s]]
+			listOfIgnoredSamples.append(inputDir2+IgnoredSamples[s])
+			listOfIgnoredSamples.append(inputDir3+IgnoredSamples[s])
+
 		else:
 			listOfIgnoredSamples.append(inputDir+IgnoredSamples[s])
+			listOfIgnoredSamples.append(inputDir2+IgnoredSamples[s])
+			listOfIgnoredSamples.append(inputDir3+IgnoredSamples[s])
+
 	### Get index of samples to be ignored in terms of subject id ###
 	IgnoredSamples_index = np.empty([0])
 	sub_items = np.empty([0])
@@ -422,3 +424,38 @@ class LossHistory(keras.callbacks.Callback):
 		self.losses.append(logs.get('loss'))
 		self.accuracy.append(logs.get('categorical_accuracy'))
 
+
+
+def plot_confusion_matrix(cm, classes,
+                          normalize=False,
+                          title='Confusion matrix',
+                          cmap=plt.cm.Blues):
+    """
+    This function prints and plots the confusion matrix.
+    Normalization can be applied by setting `normalize=True`.
+    """
+    if normalize:
+        cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+        print("Normalized confusion matrix")
+    else:
+        print('Confusion matrix, without normalization')
+
+    print(cm)
+
+    plt.imshow(cm, interpolation='nearest', cmap=cmap)
+    plt.title(title)
+    plt.colorbar()
+    tick_marks = np.arange(len(classes))
+    plt.xticks(tick_marks, classes, rotation=45)
+    plt.yticks(tick_marks, classes)
+
+    fmt = '.2f' if normalize else 'd'
+    thresh = cm.max() / 2.
+    for i, j in itertools.product(range(cm.shape[0]), range(cm.shape[1])):
+        plt.text(j, i, format(cm[i, j], fmt),
+                 horizontalalignment="center",
+                 color="white" if cm[i, j] > thresh else "black")
+
+    plt.tight_layout()
+    plt.ylabel('True label')
+    plt.xlabel('Predicted label')

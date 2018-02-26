@@ -157,8 +157,6 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_siz
 		#########################################################			
 
 
-	# print(VidPerSubject)
-
 	############## Flags ####################
 	tensorboard_flag = tensorboard
 	resizedFlag = 1
@@ -192,8 +190,6 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_siz
 		train_temporal_flag = 1
 		channel_flag = 2
 	#########################################
-
-
 
 	############ Reading Images and Labels ################
 	SubperdB = Read_Input_Images(inputDir, listOfIgnoredSamples, dB, resizedFlag, table, workplace, spatial_size, channel)
@@ -567,3 +563,4 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_siz
 		################# write each CT of each CV into .txt file #####################
 		record_scores(workplace, dB, ct, sub, order, tot_mat, n_exp, subjects)
 		###############################################################################
+		

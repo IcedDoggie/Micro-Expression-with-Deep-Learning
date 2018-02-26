@@ -174,7 +174,3 @@ def loading_samm_labels(root_db_path, dB):
 
 	return subject, filename, label, objective_classes
 
-def weighted_average_recall():
-	print("war")
-def unweighted_average_recall():
-	print("uar")

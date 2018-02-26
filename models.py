@@ -26,9 +26,14 @@ from labelling import collectinglabel
 from reordering import readinput
 from evaluationmatrix import fpr
 
-def VGG_16_4_channels(spatial_size, classes, weights_path=None):
+def VGG_16_4_channels(spatial_size, classes, channel_first=True, weights_path=None):
 	model = Sequential()
-	model.add(ZeroPadding2D((1,1),input_shape=(4, spatial_size, spatial_size)))
+
+	if channel_first:
+		model.add(ZeroPadding2D((1,1),input_shape=(classes, spatial_size, spatial_size)))
+	else:
+		model.add(ZeroPadding2D((1,1),input_shape=(spatial_size, spatial_size, classes)))
+
 	model.add(Conv2D(64, (3, 3), activation='relu'))
 	model.add(ZeroPadding2D((1,1)))
 	model.add(Conv2D(64, (3, 3), activation='relu'))
@@ -79,9 +84,14 @@ def VGG_16_4_channels(spatial_size, classes, weights_path=None):
 	
 	return model
 
-def VGG_16(spatial_size, classes, weights_path=None):
+def VGG_16(spatial_size, classes, channel_first=True, weights_path=None):
 	model = Sequential()
-	model.add(ZeroPadding2D((1,1),input_shape=(3, spatial_size, spatial_size)))
+	if channel_first:
+		model.add(ZeroPadding2D((1,1),input_shape=(classes, spatial_size, spatial_size)))
+	else:
+		model.add(ZeroPadding2D((1,1),input_shape=(spatial_size, spatial_size, classes)))
+
+
 	model.add(Conv2D(64, (3, 3), activation='relu'))
 	model.add(ZeroPadding2D((1,1)))
 	model.add(Conv2D(64, (3, 3), activation='relu'))
@@ -133,90 +143,25 @@ def VGG_16(spatial_size, classes, weights_path=None):
 	return model
 
 
-
-def VGG_16_cam(classes, weights_path=None):
+def temporal_module(data_dim, timesteps_TIM, weights_path=None):
 	model = Sequential()
-	model.add(ZeroPadding2D((1,1), input_shape=(3, 224, 224)))
-	model.add(Conv2D(64, (3, 3), activation='relu'))
-	model.add(ZeroPadding2D((1,1)))
-	model.add(Conv2D(64, (3, 3), activation='relu'))
-	model.add(MaxPooling2D((2,2), strides=(2,2)))
-
-	model.add(ZeroPadding2D((1,1)))
-	model.add(Conv2D(128, (3, 3), activation='relu'))
-	model.add(ZeroPadding2D((1,1)))
-	model.add(Conv2D(128, (3, 3), activation='relu'))
-	model.add(MaxPooling2D((2,2), strides=(2,2)))
-
-	model.add(ZeroPadding2D((1,1)))
-	model.add(Conv2D(256, (3, 3), activation='relu'))
-	model.add(ZeroPadding2D((1,1)))
-	model.add(Conv2D(256, (3, 3), activation='relu'))
-	model.add(ZeroPadding2D((1,1)))
-	model.add(Conv2D(256, (3, 3), activation='relu'))
-	model.add(MaxPooling2D((2,2), strides=(2,2)))
-
-	model.add(ZeroPadding2D((1,1)))
-	model.add(Conv2D(512, (3, 3), activation='relu'))
-	model.add(ZeroPadding2D((1,1)))
-	model.add(Conv2D(512, (3, 3), activation='relu'))
-	model.add(ZeroPadding2D((1,1)))
-	model.add(Conv2D(512, (3, 3), activation='relu'))
-	model.add(MaxPooling2D((2,2), strides=(2,2)))
-
-	model.add(ZeroPadding2D((1,1)))
-	model.add(Conv2D(512, (3, 3), activation='relu'))
-	model.add(ZeroPadding2D((1,1)))
-	model.add(Conv2D(512, (3, 3), activation='relu'))
-	model.add(ZeroPadding2D((1,1)))
-	model.add(Conv2D(512, (3, 3), activation='relu'))
-	model.add(MaxPooling2D((2,2), strides=(2,2)))
-
-
-	model.add(GlobalAveragePooling2D(data_format='channels_first'))
-
-	model.add(Dense(classes, activation='softmax'))
-
-	if weights_path:
-		model.load_weights(weights_path)
-
-	return model
-
-
-
-def temporal_module(data_dim, timesteps_TIM, classes, weights_path=None):
-	model = Sequential()
-	model.add( Bidirectional( GRU( 64, return_sequences=False ), input_shape=(timesteps_TIM, data_dim)  ) )
-	# model.add(GRU(128, return_sequences=False))
+	model.add(LSTM(3000, return_sequences=False, input_shape=(timesteps_TIM, data_dim)))
 	model.add(Dense(128, activation='relu'))
-	model.add(Dense(classes, activation='sigmoid'))
-
+	model.add(Dense(5, activation='sigmoid'))
 	if weights_path:
 		model.load_weights(weights_path)
-
 
 	return model	
 
 
-
-
-def modify_cam(model, classes):
-	model.pop()
-	model.pop()		
-	model.pop()
-	model.pop()
-	model.pop()
-	model.pop()
-	model.add(GlobalAveragePooling2D(data_format='channels_first'))
-	model.add(Dense(classes, activation = 'softmax'))	
-	return model
-
-
-
-def convolutional_autoencoder(spatial_size, classes, weights_path=None):
+def convolutional_autoencoder(classes, spatial_size, channel_first=True, weights_path=None):
 	model = Sequential()
 	# encoder
-	model.add(Conv2D(128, (3, 3), activation='relu', input_shape=(3, spatial_size, spatial_size), padding='same'))
+	if channel_first:
+		model.add(Conv2D(128, (3, 3), activation='relu', input_shape=(classes, spatial_size, spatial_size), padding='same'))
+	else:
+		model.add(Conv2D(128, (3, 3), activation='relu', input_shape=(spatial_size, spatial_size, classes), padding='same'))
+
 	model.add(MaxPooling2D( pool_size=(2, 2), strides=2, padding='same' ))
 	model.add(Conv2D(64, (3, 3), activation='relu', padding='same'))
 	model.add(MaxPooling2D( pool_size=(2, 2), strides=2, padding='same' ))
@@ -234,11 +179,3 @@ def convolutional_autoencoder(spatial_size, classes, weights_path=None):
 
 
 	return model
-
-# class Convolutional_Autoencoder(Layer):
-
-# 	def __init__(self, **kwargs):
-# 		super(Convolutional_Autoencoder, self).__init__(**kwargs)
-
-
-# 	def build()	
