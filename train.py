@@ -34,20 +34,30 @@ from labelling import collectinglabel
 from reordering import readinput
 from evaluationmatrix import fpr
 from utilities import Read_Input_Images, get_subfolders_num, data_loader_with_LOSO, label_matching, duplicate_channel
-from utilities import record_scores, loading_smic_table, loading_casme_table, ignore_casme_samples, ignore_casmergb_samples, LossHistory
-from utilities import loading_samm_table
-from list_databases import load_db
-from models import VGG_16, temporal_module, modify_cam, VGG_16_4_channels, convolutional_autoencoder
+from utilities import loading_smic_table, loading_casme_table, loading_samm_table, ignore_casme_samples, ignore_casmergb_samples # data loading scripts
+from utilities import record_loss_accuracy, record_weights, record_scores, LossHistory # recording scripts
+from list_databases import load_db, restructure_data
+from models import VGG_16, temporal_module, VGG_16_4_channels, convolutional_autoencoder
 
 
 def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_size, flag, tensorboard):
 	############## Path Preparation ######################
-	db_path = "/media/ice/OS/Datasets/"
-	workplace = root_db_path + dB + "/"
-	inputDir = root_db_path + dB + "/" + dB + "/" 
+	root_db_path = "/media/ice/OS/Datasets/"
+	tensorboard_path = "/home/ice/Documents/Micro-Expression/tensorboard/"
+
 	######################################################
 
-	r, w, subjects, samples, n_exp, VidPerSubject, timesteps_TIM, timesteps_TIM, data_dim, channel, table, listOfIgnoredSamples = load_db(db_path, dB, spatial_size)
+	############## Variables ###################
+
+	r, w, subjects, samples, n_exp, VidPerSubject, timesteps_TIM, timesteps_TIM, data_dim, channel, table, listOfIgnoredSamples, db_home, db_images = load_db(root_db_path, dB, spatial_size)
+
+	# total confusion matrix to be used in the computation of f1 score
+	tot_mat = np.zeros((n_exp,n_exp))
+
+	history = LossHistory()
+	stopping = EarlyStopping(monitor='loss', min_delta = 0, mode = 'min')
+
+	############################################
 
 	############## Flags ####################
 	tensorboard_flag = tensorboard
@@ -93,16 +103,24 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_siz
 	#########################################
 
 	############ Reading Images and Labels ################
-	SubperdB = Read_Input_Images(inputDir, listOfIgnoredSamples, dB, resizedFlag, table, workplace, spatial_size, channel)
+	SubperdB = Read_Input_Images(db_images, listOfIgnoredSamples, dB, resizedFlag, table, db_home, spatial_size, channel)
 	print("Loaded Images into the tray...")
-	labelperSub = label_matching(workplace, dB, subjects, VidPerSubject)
+	labelperSub = label_matching(db_home, dB, subjects, VidPerSubject)
 	print("Loaded Labels into the tray...")
 
 	if channel_flag == 1:
-		SubperdB_strain = Read_Input_Images(inputDir, listOfIgnoredSamples, 'CASME2_Strain_TIM10', resizedFlag, table, workplace, spatial_size, 1)
-	elif channel_flag == 2:
-		SubperdB_strain = Read_Input_Images(inputDir, listOfIgnoredSamples, 'CASME2_TIM_Strain_TIM10', resizedFlag, table, workplace, spatial_size, 1)
-		SubperdB_gray = Read_Input_Images(inputDir, listOfIgnoredSamples, 'CASME2_TIM', resizedFlag, table, workplace, spatial_size, 3)		
+		SubperdB_strain = Read_Input_Images(db_images, listOfIgnoredSamples, 'CASME2_Strain_TIM10', resizedFlag, table, db_home, spatial_size, 1)
+
+	elif channel_flag == 2:	
+		SubperdB_strain = Read_Input_Images(db_images, listOfIgnoredSamples, 'CASME2_TIM_Strain_TIM10', resizedFlag, table, db_home, spatial_size, 1)
+		SubperdB_gray = Read_Input_Images(db_images, listOfIgnoredSamples, 'CASME2_TIM', resizedFlag, table, db_home, spatial_size, 1)	
+
+	elif channel_flag == 3:
+		SubperdB_strain = Read_Input_Images(db_images, listOfIgnoredSamples, 'CASME2_TIM_Strain_TIM10', resizedFlag, table, db_home, spatial_size, 3)
+
+	elif channel_flag == 4: 
+		SubperdB_strain = Read_Input_Images(db_images, listOfIgnoredSamples, 'CASME2_TIM_Strain_TIM10', resizedFlag, table, db_home, spatial_size, 3)
+		SubperdB_gray = Read_Input_Images(db_images, listOfIgnoredSamples, 'CASME2_TIM', resizedFlag, table, db_home, spatial_size, 3)	
 	#######################################################
 
 
@@ -115,8 +133,12 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_siz
 		data_dim = spatial_size * spatial_size
 	elif train_spatial_flag == 0 and train_temporal_flag == 1 and dB == 'CASME2_Optical':
 		data_dim = spatial_size * spatial_size * 3
-	else:
+	elif channel_flag == 3:
 		data_dim = 8192
+	elif channel_flag == 4:
+		data_dim = 12288
+	else:
+		data_dim = 4096
 
 	########################################################
 
@@ -124,43 +146,21 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_siz
 
 
 	########### Training Process ############
-	# Todo:
-	# 1) LOSO (done)
-	# 2) call model (done)
-	# 3) saving model architecture 
-	# 4) Saving Checkpoint (done)
-	# 5) make prediction (done)
-	if tensorboard_flag == 1:
-		tensorboard_path = "/home/ice/Documents/Micro-Expression/tensorboard/"
-
-	# total confusion matrix to be used in the computation of f1 score
-	tot_mat = np.zeros((n_exp,n_exp))
-
-	# model checkpoint
-	spatial_weights_name = 'vgg_spatial_'+ str(train_id) + '_' + str(dB) + '_'
-	temporal_weights_name = 'temporal_ID_' + str(train_id) + '_' + str(dB) + '_'
-	ae_weights_name = 'autoencoder_' + str(train_id) + '_' + str(dB) + '_'
-	history = LossHistory()
-	stopping = EarlyStopping(monitor='loss', min_delta = 0, mode = 'min')
-
-
 
 	for sub in range(subjects):
+
 		############### Reinitialization & weights reset of models ########################
-
-		vgg_model_cam = VGG_16(spatial_size=spatial_size, classes=classes, weights_path='VGG_Face_Deep_16.h5')
-
-		temporal_model = temporal_module(data_dim=data_dim, classes=classes, timesteps_TIM=timesteps_TIM)
+		temporal_model = temporal_module(data_dim=data_dim, timesteps_TIM=timesteps_TIM)
 		temporal_model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=[metrics.categorical_accuracy])
 
-		conv_ae = convolutional_autoencoder(spatial_size = spatial_size, classes = classes)
+		conv_ae = convolutional_autoencoder(spatial_size = spatial_size, classes = n_exp)
 		conv_ae.compile(loss='binary_crossentropy', optimizer=adam)
 
 		if channel_flag == 1 or channel_flag == 2:
-			vgg_model = VGG_16_4_channels(classes=classes, spatial_size = spatial_size)
+			vgg_model = VGG_16_4_channels(classes=n_exp, spatial_size = spatial_size)
 			vgg_model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=[metrics.categorical_accuracy])
 		else:
-			vgg_model = VGG_16(spatial_size = spatial_size, classes=classes, weights_path='VGG_Face_Deep_16.h5')
+			vgg_model = VGG_16(spatial_size = spatial_size, classes=n_exp, weights_path='VGG_Face_Deep_16.h5')
 			vgg_model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=[metrics.categorical_accuracy])
 
 		svm_classifier = SVC(kernel='linear', C=1)
@@ -178,19 +178,19 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_siz
 			tbCallBack2 = keras.callbacks.TensorBoard(log_dir=cat_path2, write_graph=True)
 		#############################################
 
-		image_label_mapping = np.empty([0])
-
-
-		Train_X, Train_Y, Test_X, Test_Y, Test_Y_gt = data_loader_with_LOSO(sub, SubperdB, labelperSub, subjects, classes)
+		Train_X, Train_Y, Test_X, Test_Y, Test_Y_gt = data_loader_with_LOSO(sub, SubperdB, labelperSub, subjects, n_exp)
 
 		# Rearrange Training labels into a vector of images, breaking sequence
 		Train_X_spatial = Train_X.reshape(Train_X.shape[0]*timesteps_TIM, r, w, channel)
 		Test_X_spatial = Test_X.reshape(Test_X.shape[0]* timesteps_TIM, r, w, channel)
 
+		# Extend Y labels 10 fold, so that all images have labels
+		Train_Y_spatial = np.repeat(Train_Y, timesteps_TIM, axis=0)
+		Test_Y_spatial = np.repeat(Test_Y, timesteps_TIM, axis=0)	
 		
 		# Special Loading for 4-Channel
 		if channel_flag == 1:
-			Train_X_Strain, _, Test_X_Strain, _, _ = data_loader_with_LOSO(sub, SubperdB_strain, labelperSub, subjects, classes)
+			Train_X_Strain, _, Test_X_Strain, _, _ = data_loader_with_LOSO(sub, SubperdB_strain, labelperSub, subjects, n_exp)
 			Train_X_Strain = Train_X_Strain.reshape(Train_X_Strain.shape[0]*timesteps_TIM, r, w, 1)
 			Test_X_Strain = Test_X_Strain.reshape(Test_X.shape[0]*timesteps_TIM, r, w, 1)
 		
@@ -201,10 +201,11 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_siz
 			channel = 4
 
 		elif channel_flag == 2:
-			Train_X_Strain, _, Test_X_Strain, _, _ = data_loader_with_LOSO(sub, SubperdB_strain, labelperSub, subjects, classes)
-			Train_X_gray, _, Test_X_gray, _, _ = data_loader_with_LOSO(sub, SubperdB_gray, labelperSub, subjects)
+			Train_X_Strain, _, Test_X_Strain, _, _ = data_loader_with_LOSO(sub, SubperdB_strain, labelperSub, subjects, n_exp)
 			Train_X_Strain = Train_X_Strain.reshape(Train_X_Strain.shape[0]*timesteps_TIM, r, w, 1)
 			Test_X_Strain = Test_X_Strain.reshape(Test_X_Strain.shape[0]*timesteps_TIM, r, w, 1)
+
+			Train_X_gray, _, Test_X_gray, _, _ = data_loader_with_LOSO(sub, SubperdB_gray, labelperSub, subjects)
 			Train_X_gray = Train_X_gray.reshape(Train_X_gray.shape[0]*timesteps_TIM, r, w, 3)
 			Test_X_gray = Test_X_gray.reshape(Test_X_gray.shape[0]*timesteps_TIM, r, w, 3)
 
@@ -218,26 +219,16 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_siz
 			Train_X_spatial = duplicate_channel(Train_X_spatial)
 			Test_X_spatial = duplicate_channel(Test_X_spatial)
 
-		# Extend Y labels 10 fold, so that all images have labels
-		Train_Y_spatial = np.repeat(Train_Y, timesteps_TIM, axis=0)
-		Test_Y_spatial = np.repeat(Test_Y, timesteps_TIM, axis=0)		
+	
 
-
-		# print ("Train_X_shape: " + str(np.shape(Train_X_spatial)))
-		# print ("Train_Y_shape: " + str(np.shape(Train_Y_spatial)))
-		# print ("Test_X_shape: " + str(np.shape(Test_X_spatial)))	
-		# print ("Test_Y_shape: " + str(np.shape(Test_Y_spatial)))	
-		# print(Train_X_spatial)
 		##################### Training & Testing #########################
 
-		# print(Train_X_spatial.shape)	
-
 		X = Train_X_spatial.reshape(Train_X_spatial.shape[0], channel, r, w)
-		y = Train_Y_spatial.reshape(Train_Y_spatial.shape[0], classes)
+		y = Train_Y_spatial.reshape(Train_Y_spatial.shape[0], n_exp)
 		normalized_X = X.astype('float32') / 255.
 
 		test_X = Test_X_spatial.reshape(Test_X_spatial.shape[0], channel, r, w)
-		test_y = Test_Y_spatial.reshape(Test_Y_spatial.shape[0], classes)
+		test_y = Test_Y_spatial.reshape(Test_Y_spatial.shape[0], n_exp)
 		normalized_test_X = test_X.astype('float32') / 255.
 
 		print(X.shape)
@@ -246,14 +237,8 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_siz
 		if finetuning_flag == 1:
 			for layer in vgg_model.layers[:33]:
 				layer.trainable = False
-			for layer in vgg_model_cam.layers[:31]:
-				layer.trainable = False
 
 		if train_spatial_flag == 1 and train_temporal_flag == 1:
-			# Autoencoder features
-			conv_ae.fit(normalized_X, normalized_X, batch_size=batch_size, epochs=spatial_epochs, shuffle=True)
-
-			# trains encoder until fc, train temporal
 
 			# Spatial Training
 			if tensorboard_flag == 1:
@@ -263,42 +248,13 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_siz
 
 			
 			# record f1 and loss
-			file_loss = open(workplace+'Classification/'+ 'Result/'+dB+'/loss_' + str(train_id) +  '.txt', 'a')
-			file_loss.write(str(history.losses) + "\n")
-			file_loss.close()
+			record_loss_accuracy(db_images, train_id, dB, history, 's')		
 
-			file_loss = open(workplace+'Classification/'+ 'Result/'+dB+'/accuracy_' + str(train_id) +  '.txt', 'a')
-			file_loss.write(str(history.accuracy) + "\n")
-			file_loss.close()			
-
-			vgg_model.save_weights(spatial_weights_name + str(sub) + ".h5")
-			model = Model(inputs=vgg_model.input, outputs=vgg_model.layers[35].output)
-			plot_model(model, to_file="spatial_module_FULL_TRAINING.png", show_shapes=True)	
-
-			model_ae = Model(inputs=conv_ae.input, outputs=conv_ae.output)
-			plot_model(model_ae, to_file='autoencoders.png', show_shapes=True)
-
-			# Autoencoding
-			output_ae = model_ae.predict(normalized_X, batch_size = batch_size)
-
-			for i in range(batch_size):
-				visual_ae = output_ae[i].reshape(224,224,channel)
-				# de-normalize
-				visual_ae = ( ( visual_ae - min(visual_ae) ) / ( max(visual_ae) - min(visual_ae) ) ) * 255
-				fname = '{prefix}_{index}_{hash}.{format}'.format(prefix='AE_output', index=str(sub),
-				 												hash=np.random.randint(1e7), format='png')
-				cv2.imwrite(workplace+'Classification/Result/ae_train/'+fname, visual_ae)
-				
-			output_ae = model.predict(output_ae, batch_size = batch_size)
-
+			# save vgg weights
+			model = record_weights(vgg_model, spatial_weights_name, sub)
 
 			# Spatial Encoding
 			output = model.predict(X, batch_size = batch_size)
-			# features = output.reshape(int(Train_X.shape[0]), timesteps_TIM, output.shape[1])
-
-			# merging autoencoded features and spatial features
-			output = np.concatenate((output, output_ae), axis=1)
-			# print(output.shape)
 			features = output.reshape(int(Train_X.shape[0]), timesteps_TIM, output.shape[1])
 			
 			# Temporal Training
@@ -307,120 +263,14 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_siz
 			else:
 				temporal_model.fit(features, Train_Y, batch_size=batch_size, epochs=temporal_epochs)	
 
-			temporal_model.save_weights(temporal_weights_name + str(sub) + ".h5")
+			# save temporal weights
+			temporal_model = record_weights(temporal_model, temporal_wei, subject, 't')
 
 			# Testing
 			output = model.predict(test_X, batch_size = batch_size)
-			output_ae = model_ae.predict(normalized_test_X, batch_size = batch_size)
-			for i in range(batch_size):
-				visual_ae = output_ae[i].reshape(224,224,channel)
-				# de-normalize
-				visual_ae = ( ( visual_ae - min(visual_ae) ) / ( max(visual_ae) - min(visual_ae) ) ) * 255
-				fname = '{prefix}_{index}_{hash}.{format}'.format(prefix='AE_output', index=str(sub),
-				 												hash=np.random.randint(1e7), format='png')
-				cv2.imwrite(workplace+'Classification/Result/ae_train/'+fname, visual_ae)
-
-			output_ae = model.predict(output_ae, batch_size = batch_size)
-			output = np.concatenate((output, output_ae), axis=1)
 			features = output.reshape(Test_X.shape[0], timesteps_TIM, output.shape[1])
 
 			predict = temporal_model.predict_classes(features, batch_size=batch_size)
-
-
-		elif train_spatial_flag == 1 and train_temporal_flag == 0 and cam_visualizer_flag == 0:
-			# trains spatial module ONLY, no escape
-			
-			image_generator.fit(X)
-			vgg_model.fit_generator(image_generator.flow(X, y, batch_size=batch_size,
-			 save_to_dir="./augmented/", save_format='png', save_prefix='augmented_me'),
-			  steps_per_epoch=len(X)/batch_size, epochs=spatial_epochs)
-			
-			# Spatial Training
-			if tensorboard_flag == 1:
-				vgg_model.fit(X, y, batch_size=batch_size, epochs=spatial_epochs, shuffle=True, callbacks=[tbCallBack2])
-			else:
-				vgg_model.fit(X, y, batch_size=batch_size, epochs=spatial_epochs, shuffle=True)
-
-			vgg_model.save_weights(spatial_weights_name + str(sub) + ".h5")
-			plot_model(vgg_model, to_file="spatial_module_ONLY.png", show_shapes=True)
-
-
-
-
-			# Testing
-			# predict = vgg_model.predict_classes(test_X, batch_size = batch_size)
-			# Test_Y_gt = np.repeat(Test_Y_gt, timesteps_TIM, axis=0)
-
-			# For Majority Vote (make batch size divisible by 10(TIM No.))
-			predict = vgg_model.predict_classes(test_X, batch_size = batch_size)
-			voted_predict = []
-			i = 0
-			while i < int(len(predict)/timesteps_TIM) - 1:
-				fraction_of_predict = predict[i * timesteps_TIM : (i+1) * timesteps_TIM]
-				# print(fraction_of_predict)
-				fraction_of_predict = np.asarray(fraction_of_predict)
-				frequencies = np.bincount(fraction_of_predict)
-				highest_frequency = np.argmax(frequencies)
-				voted_predict += [highest_frequency]
-
-				i += 1
-				if i+1 >= int(len(predict)/timesteps_TIM) :
-					fraction_of_predict = predict[(i) * timesteps_TIM : len(predict)]
-					fraction_of_predict = np.asarray(fraction_of_predict)
-					frequencies = np.bincount(fraction_of_predict)
-					highest_frequency = np.argmax(frequencies)
-					voted_predict += [highest_frequency]					
-
-			# print(voted_predict)
-			predict = voted_predict	
-
-		elif train_spatial_flag == 0 and train_temporal_flag == 1:
-			# trains temporal module ONLY.
-
-			# Temporal Training
-			if tensorboard_flag == 1:
-				temporal_model.fit(Train_X, Train_Y, batch_size=batch_size, epochs=temporal_epochs, callbacks=[tbCallBack])
-			else:
-				temporal_model.fit(Train_X, Train_Y, batch_size=batch_size, epochs=temporal_epochs)	
-				# temporal_model.train_on_batch(Train_X, Train_Y)
-			temporal_model.save_weights(temporal_weights_name + str(sub) + ".h5")
-
-			# Testing
-			predict = temporal_model.predict_classes(Test_X, batch_size = batch_size)
-
-		elif svm_flag == 1 and finetuning_flag == 0:
-			# no finetuning
-
-			X = vgg_model.predict(X, batch_size=batch_size)
-			y_for_svm = np.argmax(y, axis=1)
-
-			svm_classifier.fit(X, y_for_svm)
-
-			test_X = vgg_model.predict(test_X, batch_size=batch_size)
-			predict = svm_classifier.predict(test_X)
-
-			Test_Y_gt = np.repeat(Test_Y_gt, timesteps_TIM, axis=0)
-
-		elif train_spatial_flag == 1 and train_temporal_flag == 0 and cam_visualizer_flag == 1:
-			# trains spatial module & CAM ONLY
-			
-			# modify model for CAM
-			vgg_model_cam = modify_cam(vgg_model_cam)
-			vgg_model_cam.compile(loss = 'categorical_crossentropy', optimizer = adam, metrics = [metrics.categorical_accuracy])
-
-
-			# Spatial Training
-			if tensorboard_flag == 1:
-				vgg_model_cam.fit(X, y, batch_size=batch_size, epochs=spatial_epochs, shuffle=True, callbacks=[tbCallBack2])
-			else:
-				vgg_model_cam.fit(X, y, batch_size=batch_size, epochs=spatial_epochs, shuffle=True)
-
-			vgg_model_cam.save_weights(spatial_weights_name + str(sub) + ".h5")
-			plot_model(vgg_model_cam, to_file="spatial_module_CAM_ONLY.png", show_shapes=True)
-
-			# Testing
-			predict = vgg_model_cam.predict_classes(test_X, batch_size = batch_size)		
-
 
 		##############################################################
 
@@ -446,13 +296,12 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_siz
 		microAcc = np.trace(tot_mat) / np.sum(tot_mat)
 		[f1,precision,recall] = fpr(tot_mat,n_exp)
 
-
-		file = open(workplace+'Classification/'+ 'Result/'+dB+'/f1_' + str(train_id) +  '.txt', 'a')
+		file = open(db_home+'Classification/'+ 'Result/'+dB+'/f1_' + str(train_id) +  '.txt', 'a')
 		file.write(str(f1) + "\n")
 		file.close()
 		##################################################################
 
 		################# write each CT of each CV into .txt file #####################
-		record_scores(workplace, dB, ct, sub, order, tot_mat, n_exp, subjects)
+		record_scores(db_home, dB, ct, sub, order, tot_mat, n_exp, subjects)
 		###############################################################################
 		

@@ -93,4 +93,30 @@ def load_db(db_path, db_name, spatial_size):
 
 
 
-	return r, w, subjects, samples, n_exp, VidPerSubject, timesteps_TIM, timesteps_TIM, data_dim, channel, table, listOfIgnoredSamples
+	return r, w, subjects, samples, n_exp, VidPerSubject, timesteps_TIM, timesteps_TIM, data_dim, channel, table, listOfIgnoredSamples, db_home, db_images
+
+def restructure_data(channel_flag, subject, subperdb, labelpersub, subjects, n_exp, r, w, timesteps_TIM, channel):
+	Train_X, Train_Y, Test_X, Test_Y, Test_Y_gt = data_loader_with_LOSO(subject, subperdb, labelpersub, subjects, n_exp)
+	# Rearrange Training labels into a vector of images, breaking sequence
+	Train_X_spatial = Train_X.reshape(Train_X.shape[0]*timesteps_TIM, r, w, channel)
+	Test_X_spatial = Test_X.reshape(Test_X.shape[0]* timesteps_TIM, r, w, channel)
+
+	# Extend Y labels 10 fold, so that all images have labels
+	Train_Y_spatial = np.repeat(Train_Y, timesteps_TIM, axis=0)
+	Test_Y_spatial = np.repeat(Test_Y, timesteps_TIM, axis=0)		
+
+		
+	if channel == 1:
+		# Duplicate channel of input image
+		Train_X_spatial = duplicate_channel(Train_X_spatial)
+		Test_X_spatial = duplicate_channel(Test_X_spatial)
+
+	X = Train_X_spatial.reshape(Train_X_spatial.shape[0], channel, r, w)
+	y = Train_Y_spatial.reshape(Train_Y_spatial.shape[0], n_exp)
+	normalized_X = X.astype('float32') / 255.
+
+	test_X = Test_X_spatial.reshape(Test_X_spatial.shape[0], channel, r, w)
+	test_y = Test_Y_spatial.reshape(Test_Y_spatial.shape[0], n_exp)
+	normalized_test_X = test_X.astype('float32') / 255.
+
+	return Train_X, Train_Y, Test_Y, Test_Y, Test_Y_gt, X, y, test_X, test_y

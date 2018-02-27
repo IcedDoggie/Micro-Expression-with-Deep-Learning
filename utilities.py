@@ -33,7 +33,6 @@ import itertools
 
 
 def Read_Input_Images(inputDir, listOfIgnoredSamples, dB, resizedFlag, table, workplace, spatial_size, channel):
-	# r=224; w=224
 	r = w = spatial_size	
 	SubperdB = []
 
@@ -59,8 +58,8 @@ def Read_Input_Images(inputDir, listOfIgnoredSamples, dB, resizedFlag, table, wo
 			else:
 				img = cv2.imread(imgList[0])
 				[row,col,_l] = img.shape
+
 	        ## read the label for each input video
-				
 			collectinglabel(table, sub[3:], vid, workplace+'Classification/', dB)
 
 
@@ -70,10 +69,10 @@ def Read_Input_Images(inputDir, listOfIgnoredSamples, dB, resizedFlag, table, wo
 				[_,_,dim] = img.shape
 					
 				if channel == 1:
-					img = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
+					img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
 				if resizedFlag == 1:
-					img = cv2.resize(img,(col,row))
+					img = cv2.resize(img, (col,row))
 						
 			
 				if var == 0:
@@ -390,7 +389,7 @@ def ignore_casme_samples(inputDir):
 		IgnoredSamples_index = np.append(IgnoredSamples_index, item)
 
 
-	return listOfIgnoredSamples, IgnoredSamples_index, sub_items
+	return listOfIgnoredSamples, IgnoredSamples_index
 
 def ignore_casmergb_samples(inputDir): # not a universal function, only specific to casme2_tim and derived data from casme2_tim
 	# ignored due to:
@@ -459,3 +458,29 @@ def plot_confusion_matrix(cm, classes,
     plt.tight_layout()
     plt.ylabel('True label')
     plt.xlabel('Predicted label')
+
+
+def record_loss_accuracy(db_home, train_id, db, history_callback):
+	file_loss = open(db_home + 'Classification/' + 'Result/' + db + '/loss_' + str(train_id) + '.txt', 'a')
+	file_loss.write(str(history_callback.losses) + "\n")
+	file_loss.close()
+
+	file_loss = open(db_home + 'Classification/' + 'Result/' + db + '/accuracy_' + str(train_id) + '.txt', 'a')
+	file_loss.write(str(history_callback.accuracy) + "\n")
+	file_loss.close()	
+
+def record_weights(model, weights_name, subject, flag):
+	model.save_weights(weights_name + str(subject) + ".h5")
+
+	if flag == 's':
+		model = Model(inputs=model.input, outputs=model.layers[35].output)
+		plot_model(model, to_file = "spatial_module_FULL_TRAINING.png", show_shapes=True)	
+	else:
+		plot_model(model, to_file = "temporal_module.png", show_shapes=True)	
+
+	return model
+
+
+def restructure_data(Train_X, Train_Y, Test_X, Test_Y, flag, subject, subperdb, labelpersub, subjects, n_exp, r, w):
+
+

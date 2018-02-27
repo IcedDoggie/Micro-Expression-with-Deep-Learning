@@ -448,4 +448,116 @@ def modify_cam(model, classes):
 	return model
 
 
-	
+	########### Image Data Generator ##############
+	image_generator = ImageDataGenerator(
+		zca_whitening = True,
+		rotation_range = 0.2,
+		width_shift_range = 0.2,
+		height_shift_range = 0.2, 
+		zoom_range = 0.2,
+		horizontal_flip = True,
+		rescale = 1.5)
+	###############################################
+
+		elif train_spatial_flag == 1 and train_temporal_flag == 0 and cam_visualizer_flag == 0:
+			# trains spatial module ONLY, no escape
+			
+			image_generator.fit(X)
+			vgg_model.fit_generator(image_generator.flow(X, y, batch_size=batch_size,
+			 save_to_dir="./augmented/", save_format='png', save_prefix='augmented_me'),
+			  steps_per_epoch=len(X)/batch_size, epochs=spatial_epochs)
+			
+			# Spatial Training
+			if tensorboard_flag == 1:
+				vgg_model.fit(X, y, batch_size=batch_size, epochs=spatial_epochs, shuffle=True, callbacks=[tbCallBack2])
+			else:
+				vgg_model.fit(X, y, batch_size=batch_size, epochs=spatial_epochs, shuffle=True)
+
+			vgg_model.save_weights(spatial_weights_name + str(sub) + ".h5")
+			plot_model(vgg_model, to_file="spatial_module_ONLY.png", show_shapes=True)
+
+
+
+
+			# Testing
+			# predict = vgg_model.predict_classes(test_X, batch_size = batch_size)
+			# Test_Y_gt = np.repeat(Test_Y_gt, timesteps_TIM, axis=0)
+
+			# For Majority Vote (make batch size divisible by 10(TIM No.))
+			predict = vgg_model.predict_classes(test_X, batch_size = batch_size)
+			voted_predict = []
+			i = 0
+			while i < int(len(predict)/timesteps_TIM) - 1:
+				fraction_of_predict = predict[i * timesteps_TIM : (i+1) * timesteps_TIM]
+				# print(fraction_of_predict)
+				fraction_of_predict = np.asarray(fraction_of_predict)
+				frequencies = np.bincount(fraction_of_predict)
+				highest_frequency = np.argmax(frequencies)
+				voted_predict += [highest_frequency]
+
+				i += 1
+				if i+1 >= int(len(predict)/timesteps_TIM) :
+					fraction_of_predict = predict[(i) * timesteps_TIM : len(predict)]
+					fraction_of_predict = np.asarray(fraction_of_predict)
+					frequencies = np.bincount(fraction_of_predict)
+					highest_frequency = np.argmax(frequencies)
+					voted_predict += [highest_frequency]					
+
+			# print(voted_predict)
+			predict = voted_predict	
+
+		elif train_spatial_flag == 0 and train_temporal_flag == 1:
+			# trains temporal module ONLY.
+
+			# Temporal Training
+			if tensorboard_flag == 1:
+				temporal_model.fit(Train_X, Train_Y, batch_size=batch_size, epochs=temporal_epochs, callbacks=[tbCallBack])
+			else:
+				temporal_model.fit(Train_X, Train_Y, batch_size=batch_size, epochs=temporal_epochs)	
+				# temporal_model.train_on_batch(Train_X, Train_Y)
+			temporal_model.save_weights(temporal_weights_name + str(sub) + ".h5")
+
+			# Testing
+			predict = temporal_model.predict_classes(Test_X, batch_size = batch_size)
+
+		elif svm_flag == 1 and finetuning_flag == 0:
+			# no finetuning
+
+			X = vgg_model.predict(X, batch_size=batch_size)
+			y_for_svm = np.argmax(y, axis=1)
+
+			svm_classifier.fit(X, y_for_svm)
+
+			test_X = vgg_model.predict(test_X, batch_size=batch_size)
+			predict = svm_classifier.predict(test_X)
+
+			Test_Y_gt = np.repeat(Test_Y_gt, timesteps_TIM, axis=0)
+
+
+# all autoencoding
+			model_ae = Model(inputs=conv_ae.input, outputs=conv_ae.output)
+			plot_model(model_ae, to_file='autoencoders.png', show_shapes=True)
+
+			# Autoencoding
+			output_ae = model_ae.predict(normalized_X, batch_size = batch_size)
+
+			for i in range(batch_size):
+				visual_ae = output_ae[i].reshape(224,224,channel)
+				# de-normalize
+				visual_ae = ( ( visual_ae - min(visual_ae) ) / ( max(visual_ae) - min(visual_ae) ) ) * 255
+				fname = '{prefix}_{index}_{hash}.{format}'.format(prefix='AE_output', index=str(sub),
+				 												hash=np.random.randint(1e7), format='png')
+				cv2.imwrite(db_home+'Classification/Result/ae_train/'+fname, visual_ae)
+				
+			output_ae = model.predict(output_ae, batch_size = batch_size)
+
+			output_ae = model_ae.predict(normalized_test_X, batch_size = batch_size)
+			for i in range(batch_size):
+				visual_ae = output_ae[i].reshape(224,224,channel)
+				# de-normalize
+				visual_ae = ( ( visual_ae - min(visual_ae) ) / ( max(visual_ae) - min(visual_ae) ) ) * 255
+				fname = '{prefix}_{index}_{hash}.{format}'.format(prefix='AE_output', index=str(sub),
+				 												hash=np.random.randint(1e7), format='png')
+				cv2.imwrite(db_home+'Classification/Result/ae_train/'+fname, visual_ae)
+
+			output_ae = model.predict(output_ae, batch_size = batch_size)
