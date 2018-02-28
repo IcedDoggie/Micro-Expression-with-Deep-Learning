@@ -1,0 +1,12 @@
+.ipynb_checkpoints
+Weights
+tensorboard
+Results
+__pycache__
+LBP_features_2
+LBP_features
+image_emotion_casme
+image_crossdb_te
+image
+*.[png]
+*.[h5]

@@ -36,6 +36,7 @@ from evaluationmatrix import fpr
 from utilities import Read_Input_Images, get_subfolders_num, data_loader_with_LOSO, label_matching, duplicate_channel
 from utilities import loading_smic_table, loading_casme_table, loading_samm_table, ignore_casme_samples, ignore_casmergb_samples # data loading scripts
 from utilities import record_loss_accuracy, record_weights, record_scores, LossHistory # recording scripts
+from utilities import sanity_check_image
 from list_databases import load_db, restructure_data
 from models import VGG_16, temporal_module, VGG_16_4_channels, convolutional_autoencoder
 
@@ -109,18 +110,24 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_siz
 	print("Loaded Labels into the tray...")
 
 	if channel_flag == 1:
-		SubperdB_strain = Read_Input_Images(db_images, listOfIgnoredSamples, 'CASME2_Strain_TIM10', resizedFlag, table, db_home, spatial_size, 1)
+		db_strain_img = '/media/ice/OS/Datasets/CASME2_Strain_TIM10/CASME2_Strain_TIM10/'
+		SubperdB_strain = Read_Input_Images(db_strain_img, listOfIgnoredSamples, 'CASME2_Strain_TIM10', resizedFlag, table, db_home, spatial_size, 1)
 
 	elif channel_flag == 2:	
-		SubperdB_strain = Read_Input_Images(db_images, listOfIgnoredSamples, 'CASME2_TIM_Strain_TIM10', resizedFlag, table, db_home, spatial_size, 1)
-		SubperdB_gray = Read_Input_Images(db_images, listOfIgnoredSamples, 'CASME2_TIM', resizedFlag, table, db_home, spatial_size, 1)	
+		db_strain_img = '/media/ice/OS/Datasets/CASME2_Strain_TIM10/CASME2_Strain_TIM10/'	
+		db_gray_img = '/media/ice/OS/Datasets/CASME2_TIM/CASME2_TIM/'	
+		SubperdB_strain = Read_Input_Images(db_strain_img, listOfIgnoredSamples, 'CASME2_Strain_TIM10', resizedFlag, table, db_home, spatial_size, 1)
+		SubperdB_gray = Read_Input_Images(db_gray_img, listOfIgnoredSamples, 'CASME2_TIM', resizedFlag, table, db_home, spatial_size, 1)	
 
 	elif channel_flag == 3:
-		SubperdB_strain = Read_Input_Images(db_images, listOfIgnoredSamples, 'CASME2_TIM_Strain_TIM10', resizedFlag, table, db_home, spatial_size, 3)
+		db_strain_img = '/media/ice/OS/Datasets/CASME2_Strain_TIM10/CASME2_Strain_TIM10/'		
+		SubperdB_strain = Read_Input_Images(db_strain_img, listOfIgnoredSamples, 'CASME2_Strain_TIM10', resizedFlag, table, db_home, spatial_size, 3)
 
 	elif channel_flag == 4: 
-		SubperdB_strain = Read_Input_Images(db_images, listOfIgnoredSamples, 'CASME2_TIM_Strain_TIM10', resizedFlag, table, db_home, spatial_size, 3)
-		SubperdB_gray = Read_Input_Images(db_images, listOfIgnoredSamples, 'CASME2_TIM', resizedFlag, table, db_home, spatial_size, 3)	
+		db_strain_img = '/media/ice/OS/Datasets/CASME2_Strain_TIM10/CASME2_Strain_TIM10/'	
+		db_gray_img = '/media/ice/OS/Datasets/CASME2_TIM/CASME2_TIM/'		
+		SubperdB_strain = Read_Input_Images(db_strain_img, listOfIgnoredSamples, 'CASME2_TIM_Strain_TIM10', resizedFlag, table, db_home, spatial_size, 3)
+		SubperdB_gray = Read_Input_Images(db_gray_img, listOfIgnoredSamples, 'CASME2_TIM', resizedFlag, table, db_home, spatial_size, 3)	
 	#######################################################
 
 
@@ -157,10 +164,10 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_siz
 		conv_ae.compile(loss='binary_crossentropy', optimizer=adam)
 
 		if channel_flag == 1 or channel_flag == 2:
-			vgg_model = VGG_16_4_channels(classes=n_exp, spatial_size = spatial_size)
+			vgg_model = VGG_16_4_channels(classes=n_exp, channels=4, spatial_size = spatial_size)
 			vgg_model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=[metrics.categorical_accuracy])
 		else:
-			vgg_model = VGG_16(spatial_size = spatial_size, classes=n_exp, weights_path='VGG_Face_Deep_16.h5')
+			vgg_model = VGG_16(spatial_size = spatial_size, classes=n_exp, channels=3, weights_path='VGG_Face_Deep_16.h5')
 			vgg_model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=[metrics.categorical_accuracy])
 
 		svm_classifier = SVC(kernel='linear', C=1)
@@ -178,62 +185,44 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_siz
 			tbCallBack2 = keras.callbacks.TensorBoard(log_dir=cat_path2, write_graph=True)
 		#############################################
 
-		Train_X, Train_Y, Test_X, Test_Y, Test_Y_gt = data_loader_with_LOSO(sub, SubperdB, labelperSub, subjects, n_exp)
+		Train_X, Train_Y, Test_X, Test_Y, Test_Y_gt, X, y, test_X, test_y = restructure_data(sub, SubperdB, labelperSub, subjects, n_exp, r, w, timesteps_TIM, channel)
 
-		# Rearrange Training labels into a vector of images, breaking sequence
-		Train_X_spatial = Train_X.reshape(Train_X.shape[0]*timesteps_TIM, r, w, channel)
-		Test_X_spatial = Test_X.reshape(Test_X.shape[0]* timesteps_TIM, r, w, channel)
 
-		# Extend Y labels 10 fold, so that all images have labels
-		Train_Y_spatial = np.repeat(Train_Y, timesteps_TIM, axis=0)
-		Test_Y_spatial = np.repeat(Test_Y, timesteps_TIM, axis=0)	
-		
 		# Special Loading for 4-Channel
 		if channel_flag == 1:
-			Train_X_Strain, _, Test_X_Strain, _, _ = data_loader_with_LOSO(sub, SubperdB_strain, labelperSub, subjects, n_exp)
-			Train_X_Strain = Train_X_Strain.reshape(Train_X_Strain.shape[0]*timesteps_TIM, r, w, 1)
-			Test_X_Strain = Test_X_Strain.reshape(Test_X.shape[0]*timesteps_TIM, r, w, 1)
-		
-			# Concatenate Train X & Train_X_Strain
-			Train_X_spatial = np.concatenate((Train_X_spatial, Train_X_Strain), axis=3)
-			Test_X_spatial = np.concatenate((Test_X_spatial, Test_X_Strain), axis=3)
+			_, _, _, _, _, Train_X_Strain, Train_Y_Strain, Test_X_Strain, Test_Y_Strain = restructure_data(sub, SubperdB_strain, labelperSub, subjects, n_exp, r, w, timesteps_TIM, 1)
+			
+			# verify
+			# sanity_check_image(Test_X_Strain, 1)
 
-			channel = 4
+			# Concatenate Train X & Train_X_Strain
+			X = np.concatenate((X, Train_X_Strain), axis=1)
+			test_X = np.concatenate((test_X, Test_X_Strain), axis=1)
+
+			total_channel = 4
 
 		elif channel_flag == 2:
-			Train_X_Strain, _, Test_X_Strain, _, _ = data_loader_with_LOSO(sub, SubperdB_strain, labelperSub, subjects, n_exp)
-			Train_X_Strain = Train_X_Strain.reshape(Train_X_Strain.shape[0]*timesteps_TIM, r, w, 1)
-			Test_X_Strain = Test_X_Strain.reshape(Test_X_Strain.shape[0]*timesteps_TIM, r, w, 1)
+			_, _, _, _, _, Train_X_Strain, Train_Y_Strain, Test_X_Strain, Test_Y_Strain = restructure_data(sub, SubperdB_strain, labelperSub, subjects, n_exp, r, w, timesteps_TIM, 1)
 
-			Train_X_gray, _, Test_X_gray, _, _ = data_loader_with_LOSO(sub, SubperdB_gray, labelperSub, subjects)
-			Train_X_gray = Train_X_gray.reshape(Train_X_gray.shape[0]*timesteps_TIM, r, w, 3)
-			Test_X_gray = Test_X_gray.reshape(Test_X_gray.shape[0]*timesteps_TIM, r, w, 3)
+			_, _, _, _, _, Train_X_Gray, Train_Y_Gray, Test_X_Gray, Test_Y_Gray = restructure_data(sub, SubperdB_gray, labelperSub, subjects, n_exp, r, w, timesteps_TIM, 1)
 
 			# Concatenate Train_X_Strain & Train_X & Train_X_gray
-			Train_X_spatial = np.concatenate((Train_X_spatial, Train_X_Strain, Train_X_gray), axis=3)
-			Test_X_spatial = np.concatenate((Test_X_spatial, Test_X_Strain, Test_X_gray), axis=3)	
-			channel = 7		
-		
-		if channel == 1:
-			# Duplicate channel of input image
-			Train_X_spatial = duplicate_channel(Train_X_spatial)
-			Test_X_spatial = duplicate_channel(Test_X_spatial)
+			X = np.concatenate((X, Train_X_Strain, Train_X_gray), axis=1)
+			test_X = np.concatenate((test_X, Test_X_Strain, Test_X_gray), axis=1)	
 
-	
+			total_channel = 5		
+		
+		elif channel_flag == 3:
+			_, _, _, _, _, Train_X_Strain, Train_Y_Strain, Test_X_Strain, Test_Y_Strain = restructure_data(sub, SubperdB_strain, labelperSub, subjects, n_exp, r, w, timesteps_TIM, 3)
+
+		elif channel_flag == 4:
+			_, _, _, _, _, Train_X_Strain, Train_Y_Strain, Test_X_Strain, Test_Y_Strain = restructure_data(sub, SubperdB_strain, labelperSub, subjects, n_exp, r, w, timesteps_TIM, 3)
+			_, _, _, _, _, Train_X_Gray, Train_Y_Gray, Test_X_Gray, Test_Y_Gray = restructure_data(sub, SubperdB_gray, labelperSub, subjects, n_exp, r, w, timesteps_TIM, 3)
 
 		##################### Training & Testing #########################
 
-		X = Train_X_spatial.reshape(Train_X_spatial.shape[0], channel, r, w)
-		y = Train_Y_spatial.reshape(Train_Y_spatial.shape[0], n_exp)
-		normalized_X = X.astype('float32') / 255.
 
-		test_X = Test_X_spatial.reshape(Test_X_spatial.shape[0], channel, r, w)
-		test_y = Test_Y_spatial.reshape(Test_Y_spatial.shape[0], n_exp)
-		normalized_test_X = test_X.astype('float32') / 255.
-
-		print(X.shape)
-
-		###### conv weights must be freezed for transfer learning ######
+		# conv weights must be freezed for transfer learning 
 		if finetuning_flag == 1:
 			for layer in vgg_model.layers[:33]:
 				layer.trainable = False
@@ -243,7 +232,7 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_siz
 			# Spatial Training
 			if tensorboard_flag == 1:
 				vgg_model.fit(X, y, batch_size=batch_size, epochs=spatial_epochs, shuffle=True, callbacks=[tbCallBack2])
-			else:
+			else:			
 				vgg_model.fit(X, y, batch_size=batch_size, epochs=spatial_epochs, shuffle=True, callbacks=[history, stopping])
 
 			
