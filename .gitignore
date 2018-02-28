@@ -9,6 +9,6 @@ image_emotion_casme/
 image_crossdb_te/
 image/
 External-Tools/
-*.[png]
-*.[h5]
-*.[dat]
+*.png
+*.h5
+*.dat
