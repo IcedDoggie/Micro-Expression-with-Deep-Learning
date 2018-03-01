@@ -36,7 +36,7 @@ from evaluationmatrix import fpr
 from utilities import Read_Input_Images, get_subfolders_num, data_loader_with_LOSO, label_matching, duplicate_channel
 from utilities import loading_smic_table, loading_casme_table, loading_samm_table, ignore_casme_samples, ignore_casmergb_samples # data loading scripts
 from utilities import record_loss_accuracy, record_weights, record_scores, LossHistory # recording scripts
-from utilities import sanity_check_image
+from utilities import sanity_check_image, gpu_observer
 from list_databases import load_db, restructure_data
 from models import VGG_16, temporal_module, VGG_16_4_channels, convolutional_autoencoder
 
@@ -156,6 +156,8 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_siz
 
 	for sub in range(subjects):
 
+
+
 		############### Reinitialization & weights reset of models ########################
 		temporal_model = temporal_module(data_dim=data_dim, timesteps_TIM=timesteps_TIM)
 		temporal_model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=[metrics.categorical_accuracy])
@@ -218,6 +220,11 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_siz
 		elif channel_flag == 4:
 			_, _, _, _, _, Train_X_Strain, Train_Y_Strain, Test_X_Strain, Test_Y_Strain = restructure_data(sub, SubperdB_strain, labelperSub, subjects, n_exp, r, w, timesteps_TIM, 3)
 			_, _, _, _, _, Train_X_Gray, Train_Y_Gray, Test_X_Gray, Test_Y_Gray = restructure_data(sub, SubperdB_gray, labelperSub, subjects, n_exp, r, w, timesteps_TIM, 3)
+
+		############### check gpu resources ####################
+		gpu_observer()
+		########################################################
+
 
 		##################### Training & Testing #########################
 

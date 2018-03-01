@@ -26,13 +26,13 @@ from labelling import collectinglabel
 from reordering import readinput
 from evaluationmatrix import fpr
 
-def VGG_16_4_channels(spatial_size, classes, channel_first=True, weights_path=None):
+def VGG_16_4_channels(spatial_size, classes, channels, channel_first=True, weights_path=None):
 	model = Sequential()
 
 	if channel_first:
-		model.add(ZeroPadding2D((1,1),input_shape=(classes, spatial_size, spatial_size)))
+		model.add(ZeroPadding2D((1,1),input_shape=(channels, spatial_size, spatial_size)))
 	else:
-		model.add(ZeroPadding2D((1,1),input_shape=(spatial_size, spatial_size, classes)))
+		model.add(ZeroPadding2D((1,1),input_shape=(spatial_size, spatial_size, channels)))
 
 	model.add(Conv2D(64, (3, 3), activation='relu'))
 	model.add(ZeroPadding2D((1,1)))
@@ -84,12 +84,12 @@ def VGG_16_4_channels(spatial_size, classes, channel_first=True, weights_path=No
 	
 	return model
 
-def VGG_16(spatial_size, classes, channel_first=True, weights_path=None):
+def VGG_16(spatial_size, classes, channels, channel_first=True, weights_path=None):
 	model = Sequential()
 	if channel_first:
-		model.add(ZeroPadding2D((1,1),input_shape=(classes, spatial_size, spatial_size)))
+		model.add(ZeroPadding2D((1,1),input_shape=(channels, spatial_size, spatial_size)))
 	else:
-		model.add(ZeroPadding2D((1,1),input_shape=(spatial_size, spatial_size, classes)))
+		model.add(ZeroPadding2D((1,1),input_shape=(spatial_size, spatial_size, channels)))
 
 
 	model.add(Conv2D(64, (3, 3), activation='relu'))
@@ -156,11 +156,12 @@ def temporal_module(data_dim, timesteps_TIM, weights_path=None):
 
 def convolutional_autoencoder(classes, spatial_size, channel_first=True, weights_path=None):
 	model = Sequential()
+
 	# encoder
 	if channel_first:
-		model.add(Conv2D(128, (3, 3), activation='relu', input_shape=(classes, spatial_size, spatial_size), padding='same'))
+		model.add(Conv2D(128, (3, 3), activation='relu', input_shape=(3, spatial_size, spatial_size), padding='same'))
 	else:
-		model.add(Conv2D(128, (3, 3), activation='relu', input_shape=(spatial_size, spatial_size, classes), padding='same'))
+		model.add(Conv2D(128, (3, 3), activation='relu', input_shape=(spatial_size, spatial_size, 3), padding='same'))
 
 	model.add(MaxPooling2D( pool_size=(2, 2), strides=2, padding='same' ))
 	model.add(Conv2D(64, (3, 3), activation='relu', padding='same'))

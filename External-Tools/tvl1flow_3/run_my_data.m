@@ -1,7 +1,8 @@
 image_counter = 1
 
-path = "/home/vipr/Documents/CASME2_TIM/CASME2_TIM/"
-flow_output = "/home/vipr/Documents/tvl1flow_3/flow/"
+path = "/media/ice/OS/Datasets/CASME2_TIM100/"
+flow_output = "/home/ice/Documents/Micro-Expression/External-Tools/tvl1flow_3/CASME2_TIM100/"
+
 
 string_single_digit = "00"
 string_double_digit = "0"
@@ -32,7 +33,7 @@ while sub_counter <= 26
       mkdir_str = [flow_output, sub_path, "/", video_path]
       mkdir(mkdir_str)
       image_counter = 1
-      while image_counter < 11
+      while image_counter < 101
         if image_counter >= 10
             string_to_parse = [path, sub_path, "/", video_path, "/", string_double_digit, int2str(image_counter), picture_ext]
             string_to_parse_for_flow = [flow_output, sub_path, "/", video_path, "/"]
@@ -88,6 +89,7 @@ for element=0: length(image_array(:, 1)) - 1
         compare_target_idx = 1
     end
     flow_idx++
+    disp([int2str(element), '/', length(image_array(:,1))])
 end
 
 

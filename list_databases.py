@@ -95,7 +95,7 @@ def load_db(db_path, db_name, spatial_size):
 
 	return r, w, subjects, samples, n_exp, VidPerSubject, timesteps_TIM, timesteps_TIM, data_dim, channel, table, listOfIgnoredSamples, db_home, db_images
 
-def restructure_data(channel_flag, subject, subperdb, labelpersub, subjects, n_exp, r, w, timesteps_TIM, channel):
+def restructure_data(subject, subperdb, labelpersub, subjects, n_exp, r, w, timesteps_TIM, channel):
 	Train_X, Train_Y, Test_X, Test_Y, Test_Y_gt = data_loader_with_LOSO(subject, subperdb, labelpersub, subjects, n_exp)
 	# Rearrange Training labels into a vector of images, breaking sequence
 	Train_X_spatial = Train_X.reshape(Train_X.shape[0]*timesteps_TIM, r, w, channel)
@@ -105,11 +105,6 @@ def restructure_data(channel_flag, subject, subperdb, labelpersub, subjects, n_e
 	Train_Y_spatial = np.repeat(Train_Y, timesteps_TIM, axis=0)
 	Test_Y_spatial = np.repeat(Test_Y, timesteps_TIM, axis=0)		
 
-		
-	if channel == 1:
-		# Duplicate channel of input image
-		Train_X_spatial = duplicate_channel(Train_X_spatial)
-		Test_X_spatial = duplicate_channel(Test_X_spatial)
 
 	X = Train_X_spatial.reshape(Train_X_spatial.shape[0], channel, r, w)
 	y = Train_Y_spatial.reshape(Train_Y_spatial.shape[0], n_exp)

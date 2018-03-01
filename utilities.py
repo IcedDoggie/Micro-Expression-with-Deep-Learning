@@ -29,6 +29,7 @@ from labelling import collectinglabel
 from reordering import readinput
 from evaluationmatrix import fpr
 import itertools
+from pynvml.pynvml import *
 
 
 
@@ -49,7 +50,7 @@ def Read_Input_Images(inputDir, listOfIgnoredSamples, dB, resizedFlag, table, wo
 			if path in listOfIgnoredSamples:
 				continue
 
-			imgList = readinput(path,dB)  
+			imgList = readinput(path)  
 			numFrame = len(imgList)
 
 			if resizedFlag == 1:
@@ -59,7 +60,7 @@ def Read_Input_Images(inputDir, listOfIgnoredSamples, dB, resizedFlag, table, wo
 				img = cv2.imread(imgList[0])
 				[row,col,_l] = img.shape
 
-	        ## read the label for each input video
+			## read the label for each input video
 			collectinglabel(table, sub[3:], vid, workplace+'Classification/', dB)
 
 
@@ -426,38 +427,38 @@ class LossHistory(keras.callbacks.Callback):
 
 
 def plot_confusion_matrix(cm, classes,
-                          normalize=False,
-                          title='Confusion matrix',
-                          cmap=plt.cm.Blues):
-    """
-    This function prints and plots the confusion matrix.
-    Normalization can be applied by setting `normalize=True`.
-    """
-    if normalize:
-        cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
-        print("Normalized confusion matrix")
-    else:
-        print('Confusion matrix, without normalization')
+						  normalize=False,
+						  title='Confusion matrix',
+						  cmap=plt.cm.Blues):
+	"""
+	This function prints and plots the confusion matrix.
+	Normalization can be applied by setting `normalize=True`.
+	"""
+	if normalize:
+		cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+		print("Normalized confusion matrix")
+	else:
+		print('Confusion matrix, without normalization')
 
-    print(cm)
+	print(cm)
 
-    plt.imshow(cm, interpolation='nearest', cmap=cmap)
-    plt.title(title)
-    plt.colorbar()
-    tick_marks = np.arange(len(classes))
-    plt.xticks(tick_marks, classes, rotation=45)
-    plt.yticks(tick_marks, classes)
+	plt.imshow(cm, interpolation='nearest', cmap=cmap)
+	plt.title(title)
+	plt.colorbar()
+	tick_marks = np.arange(len(classes))
+	plt.xticks(tick_marks, classes, rotation=45)
+	plt.yticks(tick_marks, classes)
 
-    fmt = '.2f' if normalize else 'd'
-    thresh = cm.max() / 2.
-    for i, j in itertools.product(range(cm.shape[0]), range(cm.shape[1])):
-        plt.text(j, i, format(cm[i, j], fmt),
-                 horizontalalignment="center",
-                 color="white" if cm[i, j] > thresh else "black")
+	fmt = '.2f' if normalize else 'd'
+	thresh = cm.max() / 2.
+	for i, j in itertools.product(range(cm.shape[0]), range(cm.shape[1])):
+		plt.text(j, i, format(cm[i, j], fmt),
+				 horizontalalignment="center",
+				 color="white" if cm[i, j] > thresh else "black")
 
-    plt.tight_layout()
-    plt.ylabel('True label')
-    plt.xlabel('Predicted label')
+	plt.tight_layout()
+	plt.ylabel('True label')
+	plt.xlabel('Predicted label')
 
 
 def record_loss_accuracy(db_home, train_id, db, history_callback):
@@ -480,7 +481,20 @@ def record_weights(model, weights_name, subject, flag):
 
 	return model
 
+def sanity_check_image(X, channel):
+	item = X[0,:,:,:]
+	item = item.reshape(224, 224, channel)
 
-def restructure_data(Train_X, Train_Y, Test_X, Test_Y, flag, subject, subperdb, labelpersub, subjects, n_exp, r, w):
+	cv2.imwrite('sanity_check.png', item)
 
+
+def gpu_observer():
+
+	nvmlInit()
+	for i in range(nvmlDeviceGetCount()):
+		handle = nvmlDeviceGetHandleByIndex(i)
+		meminfo = nvmlDeviceGetMemoryInfo(handle)
+		print("%s: %0.1f MB free, %0.1f MB used, %0.1f MB total" % (
+			nvmlDeviceGetName(handle),
+			meminfo.free/1024.**2, meminfo.used/1024.**2, meminfo.total/1024.**2))    
 

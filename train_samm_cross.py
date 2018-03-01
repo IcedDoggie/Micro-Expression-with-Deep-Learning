@@ -37,7 +37,7 @@ from utilities import Read_Input_Images, get_subfolders_num, standard_data_loade
 from utilities import record_scores, loading_smic_table, loading_casme_table, ignore_casme_samples, ignore_casmergb_samples, LossHistory
 from utilities import loading_samm_table, loading_casme_objective_table, filter_objective_samples
 from samm_utilitis import get_subfolders_num_crossdb, Read_Input_Images_SAMM_CASME, loading_samm_labels
-from models import VGG_16, temporal_module, modify_cam, VGG_16_4_channels, convolutional_autoencoder
+from models import VGG_16, temporal_module, VGG_16_4_channels, convolutional_autoencoder
 
 
 def train_samm_cross(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_size, flag, tensorboard):

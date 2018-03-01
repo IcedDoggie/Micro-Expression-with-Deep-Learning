@@ -1,9 +1,12 @@
 %readFlowFile('1.flo')
 image_counter = 1
 
-path = "/home/vipr/Documents/CASME2_TIM/CASME2_TIM/"
-flow_output = "/home/vipr/Documents/tvl1flow_3/flow/"
-image_output = "/home/vipr/Documents/tvl1flow_3/optical_image/"
+%path = "/home/vipr/Documents/CASME2_TIM/CASME2_TIM/"
+%flow_output = "/home/vipr/Documents/tvl1flow_3/flow/"
+%image_output = "/home/vipr/Documents/tvl1flow_3/optical_image/"
+path = '/home/ice/Documents/Micro-Expression/External-Tools/tvl1flow_3/CASME2_TIM/'
+flow_output = '/home/ice/Documents/Micro-Expression/External-Tools/tvl1flow_3/flow/'
+image_output = '/home/ice/Documents/Micro-Expression/External-Tools/tvl1flow_3/optical_image/'
 
 string_single_digit = "00"
 string_double_digit = "0"
@@ -13,6 +16,8 @@ picture_ext = ".jpg"
 image_array = []
 array_for_flow_output = []
 sub_counter = 1
+
+tim_size = 10
 
 while sub_counter <= 26
     if sub_counter >= 10
@@ -35,7 +40,7 @@ while sub_counter <= 26
       mkdir_str = [image_output, sub_path, "/", video_path]
       mkdir(mkdir_str)
       image_counter = 1
-      while image_counter < 11
+      while image_counter < (tim_size + 1)
         if image_counter >= 10
             string_to_parse = [path, sub_path, "/", video_path, "/", string_double_digit, int2str(image_counter), picture_ext]
             string_to_parse_for_flow = [flow_output, sub_path, "/", video_path, "/"]
@@ -63,7 +68,7 @@ ext = ".flo"
 counter =   1
 while counter <= length(array_for_flow_output)
   
-  if mod(counter,10) != 0
+  if mod(counter,tim_size) != 0
   
     target_flow = [ array_for_flow_output(counter,:), int2str(counter), ext ] 
     target_flow = regexprep(target_flow, ' +', '')
@@ -79,9 +84,25 @@ while counter <= length(array_for_flow_output)
     
     
     % calculate flow magnitude and combine the whole thing into a 3-Channel Flow Image
-    mag = sqrt(of_x.^2 + of_y.^2) % Euclidean Distance
+    scaling = 16
+    shifting = 128
+    mag = sqrt(of_x.^2 + of_y.^2) * scaling + shifting  % Euclidean Distance
+    mag = uint8(min(mag, 255))
     [x, y] = size(of_x)
     flow_image = zeros(x, y, 3)
+    of_x = of_x * scaling + shifting
+    of_y = of_y * scaling + shifting
+    
+    of_x = min(of_x,255)
+    of_x = max(of_x , 0)
+    of_y = min(of_y, 255)
+    of_y = max(of_y, 0)
+    of_x = uint8(of_x)
+    of_y = uint8(of_y)
+    
+    flow_image = uint8(flow_image)
+    
+    
     flow_image(:, :, 1) = of_x
     flow_image(:, :, 2) = of_y
     flow_image(:, :, 3) = mag
@@ -99,7 +120,7 @@ while counter <= length(array_for_flow_output)
   end
   
   flow_counter ++
-  if flow_counter > 9
+  if flow_counter > (tim_size-1)
     flow_counter = 1
   end
   counter++
