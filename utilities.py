@@ -364,19 +364,19 @@ def ignore_casme_samples(inputDir):
 						'sub17/EP15_03/','sub19/EP19_04/','sub24/EP10_03/','sub24/EP07_01/',
 						'sub24/EP07_04f/','sub24/EP02_07/','sub26/EP15_01/' ]
 	# IgnoredSamples = ['sub09/EP02_02f/', 'sub24/EP02_07/']
-	inputDir2 = "/media/ice/OS/Datasets/" + 'CASME2_Strain_TIM10' + '/' + 'CASME2_Strain_TIM10' + '/'
-	inputDir3 = "/media/ice/OS/Datasets/" + 'CASME2_TIM' + '/' + 'CASME2_TIM' + "/"
+	# inputDir2 = "/media/ice/OS/Datasets/" + 'CASME2_Strain_TIM10' + '/' + 'CASME2_Strain_TIM10' + '/'
+	# inputDir3 = "/media/ice/OS/Datasets/" + 'CASME2_TIM' + '/' + 'CASME2_TIM' + "/"
 	listOfIgnoredSamples=[]
 	for s in range(len(IgnoredSamples)):
 		if s==0:
 			listOfIgnoredSamples=[inputDir+IgnoredSamples[s]]
-			listOfIgnoredSamples.append(inputDir2+IgnoredSamples[s])
-			listOfIgnoredSamples.append(inputDir3+IgnoredSamples[s])
+			# listOfIgnoredSamples.append(inputDir2+IgnoredSamples[s])
+			# listOfIgnoredSamples.append(inputDir3+IgnoredSamples[s])
 
 		else:
 			listOfIgnoredSamples.append(inputDir+IgnoredSamples[s])
-			listOfIgnoredSamples.append(inputDir2+IgnoredSamples[s])
-			listOfIgnoredSamples.append(inputDir3+IgnoredSamples[s])
+			# listOfIgnoredSamples.append(inputDir2+IgnoredSamples[s])
+			# listOfIgnoredSamples.append(inputDir3+IgnoredSamples[s])
 
 	### Get index of samples to be ignored in terms of subject id ###
 	IgnoredSamples_index = np.empty([0])
@@ -470,6 +470,10 @@ def record_loss_accuracy(db_home, train_id, db, history_callback):
 	file_loss.write(str(history_callback.accuracy) + "\n")
 	file_loss.close()	
 
+	file_loss = open(db_home + 'Classification/' + 'Result/'+ db + '/epoch_' + str(train_id) +  '.txt', 'a')
+	file_loss.write(str(history.epoch) + "\n")
+	file_loss.close()		
+
 def record_weights(model, weights_name, subject, flag):
 	model.save_weights(weights_name + str(subject) + ".h5")
 
@@ -497,4 +501,58 @@ def gpu_observer():
 		print("%s: %0.1f MB free, %0.1f MB used, %0.1f MB total" % (
 			nvmlDeviceGetName(handle),
 			meminfo.free/1024.**2, meminfo.used/1024.**2, meminfo.total/1024.**2))    
+
+def visualize_gradcam():
+	# visualize cam
+
+	countcam = 0
+
+	for item_idx in range(len(predict)):
+		# if predict[item_idx] == Test_Y_gt[item_idx]:
+		# 	test_gray = Test_X_gray[item_idx + countcam]
+
+		# 	test_gray_4_channel = duplicate_channel(test_gray, 4)
+		# 	test_gray_4_channel = test_gray_4_channel.reshape((224, 224, 4))
+		# 	test_gray = duplicate_channel(test_gray, 3)
+		# 	test_gray = test_gray.reshape((224, 224, 3))
+
+		# 	item = test_gray
+
+
+		# 	# output for single class
+		# 	cam_output = visualize_cam(model, 29, int(predict[item_idx]), test_gray_4_channel)
+		# 	overlaying_cam = overlay(item, cam_output)
+		# 	cv2.imwrite(image_path + '_' + str(sub) + '_' + str(table[table_count, 1]) + '_' + str(predict[item_idx]) + '_' + str(Test_Y_gt[item_idx]) + '_coverlayingcam0.png', overlaying_cam)
+
+
+		# 	# output for all class
+		# 	# cam_output = visualize_cam(model, 29, 0, item)
+		# 	# cam_output2 = visualize_cam(model, 29, 1, item)
+		# 	# cam_output3 = visualize_cam(model, 29, 2, item)
+		# 	# cam_output4 = visualize_cam(model, 29, 3, item)
+		# 	# cam_output5 = visualize_cam(model, 29, 4, item)
+
+		# 	# overlaying_cam = overlay(item, cam_output)
+		# 	# overlaying_cam2 = overlay(item, cam_output2)
+		# 	# overlaying_cam3 = overlay(item, cam_output3)
+		# 	# overlaying_cam4 = overlay(item, cam_output4)
+		# 	# overlaying_cam5 = overlay(item, cam_output5)
+
+
+
+		# 	# cv2.imwrite(image_path + '_' + str(sub) + '_' + str(item_idx) + '_' + str(predict[item_idx]) + '_' + str(Test_Y_gt[item_idx]) + '_coverlayingcam0.png', overlaying_cam)
+		# 	# cv2.imwrite(image_path + '_' + str(sub) + '_' + str(item_idx) + '_' + str(predict[item_idx]) + '_' + str(Test_Y_gt[item_idx]) + '_coverlayingcam1.png', overlaying_cam2)
+		# 	# cv2.imwrite(image_path + '_' + str(sub) + '_' + str(item_idx) + '_' + str(predict[item_idx]) + '_' + str(Test_Y_gt[item_idx]) + '_coverlayingcam2.png', overlaying_cam3)
+		# 	# cv2.imwrite(image_path + '_' + str(sub) + '_' + str(item_idx) + '_' + str(predict[item_idx]) + '_' + str(Test_Y_gt[item_idx]) + '_coverlayingcam3.png', overlaying_cam4)
+		# 	# cv2.imwrite(image_path + '_' + str(sub) + '_' + str(item_idx) + '_' + str(predict[item_idx]) + '_' + str(Test_Y_gt[item_idx]) + '_coverlayingcam4.png', overlaying_cam5)
+
+		# countcam += 1
+
+		######## write the log file for megc 2018 ############
+		# result_string = str(table[0, table_count, 1])  + ' ' + str(int(Test_Y_gt[item_idx])) + ' ' + str(predict[item_idx]) + '\n' # for objective
+
+		result_string = table[table_count, 1]  + ' ' + str(int(Test_Y_gt[item_idx])) + ' ' + str(predict[item_idx]) + '\n'
+		file.write(result_string)
+		######################################################
+		table_count += 1			
 

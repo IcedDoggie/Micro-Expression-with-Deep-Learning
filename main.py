@@ -1,6 +1,5 @@
 import argparse
 from train import train
-from train_samm import train_samm
 from train_samm_cross import train_samm_cross
 from test_samm_cross import test_samm_cross
 from train_cae_lstm import train_cae_lstm
@@ -10,8 +9,6 @@ def main(args):
 	if args.train == "./train.py":
 		train(args.batch_size, args.spatial_epochs, args.temporal_epochs, args.train_id, args.dB, args.spatial_size, args.flag, args.tensorboard)
 	# train_smic(args.batch_size, args.spatial_epochs, args.temporal_epochs, args.train_id)
-	elif args.train == "./train_samm.py":
-		train_samm(args.batch_size, args.spatial_epochs, args.temporal_epochs, args.train_id, args.dB, args.spatial_size, args.flag, args.tensorboard)
 	elif args.train == "./train_samm_cross.py":
 		train_samm_cross(args.batch_size, args.spatial_epochs, args.temporal_epochs, args.train_id, args.dB, args.spatial_size, args.flag, args.tensorboard)
 	elif args.train == "./test_samm_cross.py":
