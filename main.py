@@ -30,6 +30,8 @@ def main(args):
 	# nofine - > no finetuning, train svm classifer only
 	# scratch -> train from scratch
 
+	# eg for calling more than 1 databases:
+	# python main.py --dB 'CASME2_Optical' 'CASME2_Strain_TIM10' --batch_size=1 --spatial_epochs=100 --temporal_epochs=100 --train_id='default_test' --spatial_size=224 --flag='st4se'
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
@@ -38,10 +40,11 @@ if __name__ == '__main__':
 	parser.add_argument('--spatial_epochs', type=int, default=10, help='Epochs to train for Spatial Encoder')
 	parser.add_argument('--temporal_epochs', type= int, default=40, help='Epochs to train for Temporal Encoder')
 	parser.add_argument('--train_id', type=str, default="0", help='To name the weights of model')
-	parser.add_argument('--dB', type=str, default='CASME2_TIM', help='Specify Database')
+	parser.add_argument('--dB', nargs="+", type=str, default='CASME2_TIM', help='Specify Database')
 	parser.add_argument('--spatial_size', type=int, default=224, help='Size of image')
 	parser.add_argument('--flag', type=str, default='st', help='Flags to control type of training')
 	parser.add_argument('--tensorboard', type=bool, default=False, help='tensorboard display')
+
 
 	args = parser.parse_args()
 	print(args)

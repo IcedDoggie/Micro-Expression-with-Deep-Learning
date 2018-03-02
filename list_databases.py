@@ -8,12 +8,16 @@ import xlrd
 import pandas as pd
 
 from utilities import Read_Input_Images, get_subfolders_num, data_loader_with_LOSO, label_matching, duplicate_channel
-from utilities import record_scores, loading_smic_table, loading_casme_table, ignore_casme_samples, ignore_casmergb_samples, LossHistory
-from utilities import loading_samm_table
+from utilities import record_scores, LossHistory, filter_objective_samples
+from utilities import loading_samm_table, loading_smic_table, loading_casme_table, ignore_casme_samples, ignore_casmergb_samples, loading_casme_objective_table
+from samm_utilitis import get_subfolders_num_crossdb, loading_samm_labels
+
 
 def load_db(db_path, db_name, spatial_size):
 	db_home = db_path + db_name  + "/"
 	db_images = db_path + db_name + "/" + db_name + "/"
+
+	cross_db_flag = 0
 
 	if db_name == 'CASME2_TIM':
 		table = loading_casme_table(db_home + 'CASME2_label_Ver_2.xls')
@@ -91,9 +95,39 @@ def load_db(db_path, db_name, spatial_size):
 		channel = 3
 		#########################################################		
 
+	elif db_name == 'SAMM_CASME_Optical':
+		# total amount of videos 253
+		table, table_objective = loading_samm_table(db_path, db_name)
+		table = table_objective
+		table2 = loading_casme_objective_table(db_path, db_name)
+
+		# merge samm and casme tables
+		table = np.concatenate((table, table2), axis=1)
+		
+		listOfIgnoredSamples = []
+		IgnoredSamples_index = np.empty([0])
+		sub_items = np.empty([0])
+		list_samples = filter_objective_samples(table)
+
+		r = w = spatial_size
+		subjects = 47 # some subjects were removed because of objective classes and ignore samples: 47
+		n_exp = 5
+		samples = 253
+
+		VidPerSubject, list_samples = get_subfolders_num_crossdb(db_images, IgnoredSamples_index, sub_items, table, list_samples)
+
+		timesteps_TIM = 9
+		data_dim = r * w
+		channel = 3
+
+		if os.path.isfile(db_home + "Classification/SAMM_CASME_Optical_label.txt"):
+			os.remove(db_home + "Classification/SAMM_CASME_Optical_label.txt")
+
+		cross_db_flag = 1
+		return r, w, subjects, samples, n_exp, VidPerSubject, timesteps_TIM, data_dim, channel, table, list_samples, db_home, db_images, cross_db_flag
 
 
-	return r, w, subjects, samples, n_exp, VidPerSubject, timesteps_TIM, timesteps_TIM, data_dim, channel, table, listOfIgnoredSamples, db_home, db_images
+	return r, w, subjects, samples, n_exp, VidPerSubject, timesteps_TIM, data_dim, channel, table, listOfIgnoredSamples, db_home, db_images, cross_db_flag
 
 def restructure_data(subject, subperdb, labelpersub, subjects, n_exp, r, w, timesteps_TIM, channel):
 	Train_X, Train_Y, Test_X, Test_Y, Test_Y_gt = data_loader_with_LOSO(subject, subperdb, labelpersub, subjects, n_exp)

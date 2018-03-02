@@ -37,11 +37,13 @@ from utilities import Read_Input_Images, get_subfolders_num, data_loader_with_LO
 from utilities import loading_smic_table, loading_casme_table, loading_samm_table, ignore_casme_samples, ignore_casmergb_samples # data loading scripts
 from utilities import record_loss_accuracy, record_weights, record_scores, LossHistory # recording scripts
 from utilities import sanity_check_image, gpu_observer
+from samm_utilitis import get_subfolders_num_crossdb, Read_Input_Images_SAMM_CASME, loading_samm_labels
+
 from list_databases import load_db, restructure_data
 from models import VGG_16, temporal_module, VGG_16_4_channels, convolutional_autoencoder
 
 
-def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_size, flag, tensorboard):
+def train(batch_size, spatial_epochs, temporal_epochs, train_id, list_dB, spatial_size, flag, tensorboard):
 	############## Path Preparation ######################
 	root_db_path = "/media/ice/OS/Datasets/"
 	tensorboard_path = "/home/ice/Documents/Micro-Expression/tensorboard/"
@@ -49,11 +51,15 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_siz
 	######################################################
 
 	############## Variables ###################
+	dB = list_dB[0]
+	r, w, subjects, samples, n_exp, VidPerSubject, timesteps_TIM, data_dim, channel, table, listOfIgnoredSamples, db_home, db_images, cross_db_flag = load_db(root_db_path, dB, spatial_size)
 
-	r, w, subjects, samples, n_exp, VidPerSubject, timesteps_TIM, timesteps_TIM, data_dim, channel, table, listOfIgnoredSamples, db_home, db_images = load_db(root_db_path, dB, spatial_size)
+	# avoid confusion
+	if cross_db_flag == 1:
+		list_samples = listOfIgnoredSamples
 
 	# total confusion matrix to be used in the computation of f1 score
-	tot_mat = np.zeros((n_exp,n_exp))
+	tot_mat = np.zeros((n_exp, n_exp))
 
 	history = LossHistory()
 	stopping = EarlyStopping(monitor='loss', min_delta = 0, mode = 'min')
@@ -100,34 +106,76 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_siz
 		train_spatial_flag = 1
 		train_temporal_flag = 1
 		channel_flag = 4
+	elif flag == 'st4te_cde':
+		train_spatial_flag = 1
+		train_temporal_flag = 1
+		channel_flag = 5
+	elif flag == 'st7te_cde':
+		train_spatial_flag = 1
+		train_temporal_flag = 1
+		channel_flag = 6	
+	elif flag == 'st4se_cde':
+		train_spatial_flag = 1
+		train_temporal_flag = 1
+		channel_flag = 7
+	elif flag == 'st7se_cde':
+		train_spatial_flag = 1
+		train_temporal_flag = 1
+		channel_flag = 8				
 
 	#########################################
 
 	############ Reading Images and Labels ################
-	SubperdB = Read_Input_Images(db_images, listOfIgnoredSamples, dB, resizedFlag, table, db_home, spatial_size, channel)
-	print("Loaded Images into the tray...")
+	if cross_db_flag == 1:
+		SubperdB = Read_Input_Images_SAMM_CASME(db_images, list_samples, listOfIgnoredSamples, dB, resizedFlag, table, db_home, spatial_size, channel)
+	else:
+		SubperdB = Read_Input_Images(db_images, listOfIgnoredSamples, dB, resizedFlag, table, db_home, spatial_size, channel)
+
+
 	labelperSub = label_matching(db_home, dB, subjects, VidPerSubject)
+	print("Loaded Images into the tray...")
 	print("Loaded Labels into the tray...")
 
 	if channel_flag == 1:
-		db_strain_img = '/media/ice/OS/Datasets/CASME2_Strain_TIM10/CASME2_Strain_TIM10/'
-		SubperdB_strain = Read_Input_Images(db_strain_img, listOfIgnoredSamples, 'CASME2_Strain_TIM10', resizedFlag, table, db_home, spatial_size, 1)
+		aux_db1 = list_dB[1]
+		db_strain_img = root_db_path + aux_db1 + "/" + aux_db1 + "/"
+		if cross_db_flag == 1:
+			SubperdB = Read_Input_Images_SAMM_CASME(db_strain_img, list_samples, listOfIgnoredSamples, aux_db1, resizedFlag, table, db_home, spatial_size, 1)
+		else:
+			SubperdB_strain = Read_Input_Images(db_strain_img, listOfIgnoredSamples, aux_db1, resizedFlag, table, db_home, spatial_size, 1)
 
 	elif channel_flag == 2:	
-		db_strain_img = '/media/ice/OS/Datasets/CASME2_Strain_TIM10/CASME2_Strain_TIM10/'	
-		db_gray_img = '/media/ice/OS/Datasets/CASME2_TIM/CASME2_TIM/'	
-		SubperdB_strain = Read_Input_Images(db_strain_img, listOfIgnoredSamples, 'CASME2_Strain_TIM10', resizedFlag, table, db_home, spatial_size, 1)
-		SubperdB_gray = Read_Input_Images(db_gray_img, listOfIgnoredSamples, 'CASME2_TIM', resizedFlag, table, db_home, spatial_size, 1)	
+		aux_db1 = list_dB[1]
+		aux_db2 = list_dB[2]
+		db_strain_img = root_db_path + aux_db1 + "/" + aux_db1 + "/"	
+		db_gray_img = root_db_path + aux_db2 + "/" + aux_db2 + "/"
+		if cross_db_flag == 1:
+			SubperdB_strain = Read_Input_Images_SAMM_CASME(db_strain_img, list_samples, listOfIgnoredSamples, aux_db1, resizedFlag, table, db_home, spatial_size, 1)
+			SubperdB_gray = Read_Input_Images_SAMM_CASME(db_gray_img, list_samples, listOfIgnoredSamples, aux_db2, resizedFlag, table, db_home, spatial_size, 1)
+		else:
+			SubperdB_strain = Read_Input_Images(db_strain_img, listOfIgnoredSamples, aux_db1, resizedFlag, table, db_home, spatial_size, 1)
+			SubperdB_gray = Read_Input_Images(db_gray_img, listOfIgnoredSamples, aux_db2, resizedFlag, table, db_home, spatial_size, 1)	
 
 	elif channel_flag == 3:
-		db_strain_img = '/media/ice/OS/Datasets/CASME2_Strain_TIM10/CASME2_Strain_TIM10/'		
-		SubperdB_strain = Read_Input_Images(db_strain_img, listOfIgnoredSamples, 'CASME2_Strain_TIM10', resizedFlag, table, db_home, spatial_size, 3)
-
+		aux_db1 = list_dB[1]		
+		db_strain_img = root_db_path + aux_db1 + "/" + aux_db1 + "/"		
+		if cross_db_flag == 1:
+			SubperdB = Read_Input_Images_SAMM_CASME(db_strain_img, list_samples, listOfIgnoredSamples, aux_db1, resizedFlag, table, db_home, spatial_size, 3)
+		else:
+			SubperdB_strain = Read_Input_Images(db_strain_img, listOfIgnoredSamples, aux_db1, resizedFlag, table, db_home, spatial_size, 3)
 	elif channel_flag == 4: 
-		db_strain_img = '/media/ice/OS/Datasets/CASME2_Strain_TIM10/CASME2_Strain_TIM10/'	
-		db_gray_img = '/media/ice/OS/Datasets/CASME2_TIM/CASME2_TIM/'		
-		SubperdB_strain = Read_Input_Images(db_strain_img, listOfIgnoredSamples, 'CASME2_TIM_Strain_TIM10', resizedFlag, table, db_home, spatial_size, 3)
-		SubperdB_gray = Read_Input_Images(db_gray_img, listOfIgnoredSamples, 'CASME2_TIM', resizedFlag, table, db_home, spatial_size, 3)	
+		aux_db1 = list_dB[1]
+		aux_db2 = list_dB[2]		
+		db_strain_img = root_db_path + aux_db1 + "/" + aux_db1 + "/"	
+		db_gray_img = root_db_path + aux_db2 + "/" + aux_db2 + "/"		
+		if cross_db_flag == 1:
+			SubperdB_strain = Read_Input_Images_SAMM_CASME(db_strain_img, list_samples, listOfIgnoredSamples, aux_db1, resizedFlag, table, db_home, spatial_size, 3)
+			SubperdB_gray = Read_Input_Images_SAMM_CASME(db_gray_img, list_samples, listOfIgnoredSamples, aux_db2, resizedFlag, table, db_home, spatial_size, 3)
+		else:
+			SubperdB_strain = Read_Input_Images(db_strain_img, listOfIgnoredSamples, aux_db1, resizedFlag, table, db_home, spatial_size, 3)
+			SubperdB_gray = Read_Input_Images(db_gray_img, listOfIgnoredSamples, aux_db2, resizedFlag, table, db_home, spatial_size, 3)	
+
+	
 	#######################################################
 
 

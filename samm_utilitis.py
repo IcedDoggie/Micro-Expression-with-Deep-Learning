@@ -44,9 +44,7 @@ def Read_Input_Images_SAMM_CASME(inputDir, filteredSamples, ignoredSamples, dB, 
 			vid_id = np.empty([0])       
 
 			for vid in sorted([inrfile for inrfile in os.listdir(inputDir+sub)]):
-				# /media/ice/OS/Datasets/SAMM_CASME_Optical/SAMM_CASME_Optical/006/006_1_2/
-				# /media/ice/OS/Datasets/SAMM_CASME_Optical/SAMM_CASME_Optical/006/006_1_2/
-				# /media/ice/OS/Datasets/SAMM_CASME_Optical/SAMM_CASME_Optical/sub09/EP13_02/
+
 				path=inputDir + sub + '/'+ vid + '/'
 				# print(len(filteredSamples))
 				# print(filteredSamples)
@@ -60,7 +58,7 @@ def Read_Input_Images_SAMM_CASME(inputDir, filteredSamples, ignoredSamples, dB, 
 						
 				# print(dB)
 				# print(path)
-				imgList=readinput(path,dB)
+				imgList=readinput(path)
 			  
 				numFrame=len(imgList)
 				# print(numFrame)
