@@ -69,9 +69,6 @@ def collectinglabel(Table, sub, videoName, workplace, db):
                 result = Table[0, var, 2]
                 result -= 1
                 break
-            
- 
-                
 
     else:
 

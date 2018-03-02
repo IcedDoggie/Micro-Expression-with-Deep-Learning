@@ -356,7 +356,7 @@ def filter_objective_samples(table): # this is to filter data with objective cla
 
 	return list_samples
 
-def ignore_casme_samples(inputDir):
+def ignore_casme_samples(db_path, list_db):
 	# ignored due to:
 	# 1) no matching label.
 	# 2) fear, sadness are excluded due to too little data, see CASME2 paper for more
@@ -367,16 +367,17 @@ def ignore_casme_samples(inputDir):
 	# inputDir2 = "/media/ice/OS/Datasets/" + 'CASME2_Strain_TIM10' + '/' + 'CASME2_Strain_TIM10' + '/'
 	# inputDir3 = "/media/ice/OS/Datasets/" + 'CASME2_TIM' + '/' + 'CASME2_TIM' + "/"
 	listOfIgnoredSamples=[]
+	first_flag = 1
 	for s in range(len(IgnoredSamples)):
-		if s==0:
-			listOfIgnoredSamples=[inputDir+IgnoredSamples[s]]
-			# listOfIgnoredSamples.append(inputDir2+IgnoredSamples[s])
-			# listOfIgnoredSamples.append(inputDir3+IgnoredSamples[s])
+		for db in list_db:
+			ignore_path = db_path + db + "/" + db + "/"
 
-		else:
-			listOfIgnoredSamples.append(inputDir+IgnoredSamples[s])
-			# listOfIgnoredSamples.append(inputDir2+IgnoredSamples[s])
-			# listOfIgnoredSamples.append(inputDir3+IgnoredSamples[s])
+			if s == 0 and first_flag:
+				listOfIgnoredSamples=[ignore_path + IgnoredSamples[s]]
+				first_flag = 0
+			
+			else:
+				listOfIgnoredSamples.append(ignore_path + IgnoredSamples[s])
 
 	### Get index of samples to be ignored in terms of subject id ###
 	IgnoredSamples_index = np.empty([0])

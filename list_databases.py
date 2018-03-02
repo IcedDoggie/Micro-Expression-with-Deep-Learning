@@ -13,7 +13,8 @@ from utilities import loading_samm_table, loading_smic_table, loading_casme_tabl
 from samm_utilitis import get_subfolders_num_crossdb, loading_samm_labels
 
 
-def load_db(db_path, db_name, spatial_size):
+def load_db(db_path, list_db, spatial_size):
+	db_name = list_db[0]
 	db_home = db_path + db_name  + "/"
 	db_images = db_path + db_name + "/" + db_name + "/"
 
@@ -21,7 +22,7 @@ def load_db(db_path, db_name, spatial_size):
 
 	if db_name == 'CASME2_TIM':
 		table = loading_casme_table(db_home + 'CASME2_label_Ver_2.xls')
-		listOfIgnoredSamples, IgnoredSamples_index = ignore_casme_samples(db_images)
+		listOfIgnoredSamples, IgnoredSamples_index = ignore_casme_samples(db_path, list_db)
 
 		r = w = spatial_size
 		subjects=26
@@ -33,11 +34,12 @@ def load_db(db_path, db_name, spatial_size):
 		data_dim = r * w
 		channel = 3
 
-		os.remove(db_home + "Classification/CASME2_TIM_label.txt")
+		if os.path.isdir(db_home + "Classification/" + db_name + "_label.txt" ) == True:
+			os.remove(db_home + "Classification/" + db_name + "_label.txt")
 
 	elif db_name == 'CASME2_Optical':
 		table = loading_casme_table(db_home + 'CASME2_label_Ver_2.xls')
-		listOfIgnoredSamples, IgnoredSamples_index = ignore_casme_samples(db_images)
+		listOfIgnoredSamples, IgnoredSamples_index = ignore_casme_samples(db_path, list_db)
 
 		r = w = spatial_size
 		subjects=26
@@ -49,7 +51,8 @@ def load_db(db_path, db_name, spatial_size):
 		data_dim = r * w
 		channel = 3		
 
-		os.remove(db_home + "Classification/CASME2_Optical_label.txt")
+		if os.path.isdir(db_home + "Classification/" + db_name + "_label.txt" ) == True:
+			os.remove(db_home + "Classification/" + db_name + "_label.txt")
 
 	elif db_name == 'SMIC_TIM10':
 		table = loading_smic_table(db_path, db_name)
@@ -65,6 +68,9 @@ def load_db(db_path, db_name, spatial_size):
 		data_dim = r * w
 		channel = 3
 
+		if os.path.isdir(db_home + "Classification/" + db_name + "_label.txt" ) == True:
+			os.remove(db_home + "Classification/" + db_name + "_label.txt")		
+
 	elif db_name == 'SAMM_Optical':
 		table, table_objective = loading_samm_table(db_path, db_name)
 		listOfIgnoredSamples = []
@@ -78,6 +84,9 @@ def load_db(db_path, db_name, spatial_size):
 		timesteps_TIM = 9
 		data_dim = r * w
 		channel = 3
+
+		if os.path.isdir(db_home + "Classification/" + db_name + "_label.txt" ) == True:
+			os.remove(db_home + "Classification/" + db_name + "_label.txt")		
 
 	elif db_name == 'SAMM_TIM10':
 		table, table_objective = loading_samm_table(db_path, db_name)
@@ -93,7 +102,10 @@ def load_db(db_path, db_name, spatial_size):
 		timesteps_TIM = 10
 		data_dim = r * w
 		channel = 3
-		#########################################################		
+		#########################################################	
+
+		if os.path.isdir(db_home + "Classification/" + db_name + "_label.txt" ) == True:
+			os.remove(db_home + "Classification/" + db_name + "_label.txt")			
 
 	elif db_name == 'SAMM_CASME_Optical':
 		# total amount of videos 253
@@ -120,8 +132,8 @@ def load_db(db_path, db_name, spatial_size):
 		data_dim = r * w
 		channel = 3
 
-		if os.path.isfile(db_home + "Classification/SAMM_CASME_Optical_label.txt"):
-			os.remove(db_home + "Classification/SAMM_CASME_Optical_label.txt")
+		if os.path.isdir(db_home + "Classification/" + db_name + "_label.txt" ) == True:
+			os.remove(db_home + "Classification/" + db_name + "_label.txt")
 
 		cross_db_flag = 1
 		return r, w, subjects, samples, n_exp, VidPerSubject, timesteps_TIM, data_dim, channel, table, list_samples, db_home, db_images, cross_db_flag

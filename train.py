@@ -42,7 +42,6 @@ from samm_utilitis import get_subfolders_num_crossdb, Read_Input_Images_SAMM_CAS
 from list_databases import load_db, restructure_data
 from models import VGG_16, temporal_module, VGG_16_4_channels, convolutional_autoencoder
 
-
 def train(batch_size, spatial_epochs, temporal_epochs, train_id, list_dB, spatial_size, flag, tensorboard):
 	############## Path Preparation ######################
 	root_db_path = "/media/ice/OS/Datasets/"
@@ -54,7 +53,7 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, list_dB, spatia
 
 	############## Variables ###################
 	dB = list_dB[0]
-	r, w, subjects, samples, n_exp, VidPerSubject, timesteps_TIM, data_dim, channel, table, listOfIgnoredSamples, db_home, db_images, cross_db_flag = load_db(root_db_path, dB, spatial_size)
+	r, w, subjects, samples, n_exp, VidPerSubject, timesteps_TIM, data_dim, channel, table, listOfIgnoredSamples, db_home, db_images, cross_db_flag = load_db(root_db_path, list_dB, spatial_size)
 
 	# avoid confusion
 	if cross_db_flag == 1:
@@ -295,7 +294,7 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, list_dB, spatia
 			if channel_flag == 3 or channel_flag == 4:
 				for layer in vgg_model_strain.layers[:33]:
 					layer.trainable = False
-				if channel_flag == 4
+				if channel_flag == 4:
 					for layer in vgg_model_gray.layers[:33]:
 						layer.trainable = False					
 
