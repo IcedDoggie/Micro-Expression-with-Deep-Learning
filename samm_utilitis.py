@@ -30,7 +30,7 @@ from labelling import collectinglabel
 from reordering import readinput
 from evaluationmatrix import fpr
 
-def Read_Input_Images_SAMM_CASME(inputDir, filteredSamples, ignoredSamples, dB, resizedFlag, table, workplace, spatial_size, channel):
+def Read_Input_Images_SAMM_CASME(inputDir, filteredSamples, ignoredSamples, dB, resizedFlag, table, workplace, spatial_size, channel, objective_flag):
 	# r=224; w=224
 	r=w=spatial_size	
 	SubperdB=[]
@@ -70,7 +70,7 @@ def Read_Input_Images_SAMM_CASME(inputDir, filteredSamples, ignoredSamples, dB, 
 					[row,col,_l]=img.shape
 	##            ##read the label for each input video
 				# print(sub[3:])
-				collectinglabel(table, sub, vid, workplace+'Classification/', dB)
+				collectinglabel(table, sub, vid, workplace+'Classification/', dB, objective_flag)
 
 
 				for var in range(numFrame):
@@ -155,13 +155,15 @@ def get_subfolders_num_crossdb(path, IgnoredSamples_index, sub_items, table, lis
 	# print(list_samples)
 	return folders_array, list_samples	
 
-def loading_samm_labels(root_db_path, dB):
+def loading_samm_labels(root_db_path, dB, objective_flag):
 	label_filename = 'SAMM_Micro_FACS_Codes_v2.xlsx'
 
 	label_path = root_db_path + dB + "/" + label_filename
 	label_file = pd.read_excel(label_path, converters={'Subject': lambda x: str(x)})
 	# remove class 6, 7
-	label_file = label_file.ix[label_file['Objective Classes'] < 6]
+	if objective_flag:
+		label_file = label_file.ix[label_file['Objective Classes'] < 6]
+	
 	# print(len(label_file)) # 68 samples
 
 	subject = label_file[['Subject']]

@@ -1,5 +1,25 @@
-def collectinglabel(Table, sub, videoName, workplace, db):
-    if db == "SMIC_TIM10":
+def collectinglabel(Table, sub, videoName, workplace, db, objective_flag):
+    
+    # note: cross cases must be put on top
+
+    # SAMM-CASME case
+    if "SAMM_CASME" in db:
+        for var in range(len(Table[0, :, 0])):
+            result = -1
+
+            # for casme: sub[3:]
+            # for samm: sub
+            if videoName == Table[0, var, 1] and sub == Table[0, var, 0]:
+                result = Table[0, var, 2]
+                result -= 1
+                break
+            elif videoName == Table[0, var, 1] and sub[3:] == Table[0, var, 0]:
+                result = Table[0, var, 2]
+                result -= 1
+                break
+    
+    # SMIC only case
+    elif "SMIC_" in db:
         counter = 0
 
         for var in ((Table[0, :, 0])):
@@ -19,57 +39,48 @@ def collectinglabel(Table, sub, videoName, workplace, db):
                 # print("found: %s" % (videoName) )
                 # break
             counter += 1
-    elif db == "SAMM_TIM10" or db == 'SAMM_Optical' or db == 'SAMM_Strain':
+
+    # SAMM only case
+    elif "SAMM_" in db:
+
         counter = 0
-        for var in ((Table[0, :, 0])):
-            result = -1
-            # print(Table[0,counter, 1])
-            if videoName == var or videoName in var:
-                result = (Table[0, counter, 1])
-                if result == 'Anger': # negative
-                    result = 0
-                    break
-                elif result == 'Contempt': # positive
-                    result = 1
-                    break
-                elif result == 'Disgust': # surprise
-                    result = 2
-                    break
-                elif result == 'Fear': # surprise
-                    result = 3
-                    break
-                elif result == 'Happiness': # surprise
-                    result = 4
-                    break
-                elif result == 'Other': # surprise
-                    result = 5
-                    break
-                elif result == 'Sadness': # surprise
-                    result = 6
-                    break
-                elif result == 'Surprise': # surprise
-                    result = 7
-                    break                    
-                # print("found: %s" % (videoName) )
-                # print(result)
-                # break
-            counter += 1
+        if objective_flag == 0:
+            for var in ((Table[0, :, 0])):
+                result = -1
+                # print(Table[0,counter, 1])
+                if videoName == var or videoName in var:
+                    result = (Table[0, counter, 1])
+                    if result == 'Anger': # negative
+                        result = 0
+                        break
+                    elif result == 'Contempt': # positive
+                        result = 1
+                        break
+                    elif result == 'Disgust': # surprise
+                        result = 2
+                        break
+                    elif result == 'Fear': # surprise
+                        result = 3
+                        break
+                    elif result == 'Happiness': # surprise
+                        result = 4
+                        break
+                    elif result == 'Other': # surprise
+                        result = 5
+                        break
+                    elif result == 'Sadness': # surprise
+                        result = 6
+                        break
+                    elif result == 'Surprise': # surprise
+                        result = 7
+                        break                    
+                    # print("found: %s" % (videoName) )
+                    # print(result)
+                    # break
+                counter += 1            
 
-    elif db == 'SAMM_CASME_Optical':
-        for var in range(len(Table[0, :, 0])):
-            result = -1
-
-            # for casme: sub[3:]
-            # for samm: sub
-            if videoName == Table[0, var, 1] and sub == Table[0, var, 0]:
-                result = Table[0, var, 2]
-                result -= 1
-                break
-            elif videoName == Table[0, var, 1] and sub[3:] == Table[0, var, 0]:
-                result = Table[0, var, 2]
-                result -= 1
-                break
-
+ 
+    # CASME2 usually.
     else:
 
         for var in range(len(Table)):

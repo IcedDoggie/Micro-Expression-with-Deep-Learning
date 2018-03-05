@@ -33,7 +33,7 @@ from pynvml.pynvml import *
 
 
 
-def Read_Input_Images(inputDir, listOfIgnoredSamples, dB, resizedFlag, table, workplace, spatial_size, channel):
+def Read_Input_Images(inputDir, listOfIgnoredSamples, dB, resizedFlag, table, workplace, spatial_size, channel, objective_flag):
 	r = w = spatial_size	
 	SubperdB = []
 
@@ -61,7 +61,7 @@ def Read_Input_Images(inputDir, listOfIgnoredSamples, dB, resizedFlag, table, wo
 				[row,col,_l] = img.shape
 
 			## read the label for each input video
-			collectinglabel(table, sub[3:], vid, workplace+'Classification/', dB)
+			collectinglabel(table, sub[3:], vid, workplace+'Classification/', dB, objective_flag)
 
 
 			for var in range(numFrame):
@@ -253,13 +253,15 @@ def loading_smic_labels(root_db_path, dB):
 	# print(label_file)
 	return subject, filename, label, num_frames
 
-def loading_samm_labels(root_db_path, dB):
+def loading_samm_labels(root_db_path, dB, objective_flag):
 	label_filename = 'SAMM_Micro_FACS_Codes_v2.xlsx'
 
 	label_path = root_db_path + dB + "/" + label_filename
 	label_file = pd.read_excel(label_path, converters={'Subject': lambda x: str(x)})
 	# remove class 6, 7
-	label_file = label_file.ix[label_file['Objective Classes'] < 6]	
+	if objective_flag:
+		print(objective_flag)
+		label_file = label_file.ix[label_file['Objective Classes'] < 6]	
 
 	subject = label_file[['Subject']]
 	filename = label_file[['Filename']]
@@ -324,8 +326,8 @@ def loading_smic_table(root_db_path, dB):
 	return table	
 
 
-def loading_samm_table(root_db_path, dB):	
-	subject, filename, label, objective_classes = loading_samm_labels(root_db_path, dB)
+def loading_samm_table(root_db_path, dB, objective_flag):	
+	subject, filename, label, objective_classes = loading_samm_labels(root_db_path, dB, objective_flag)
 	# print("subject:%s filename:%s label:%s objective_classes:%s" %(subject, filename, label, objective_classes))
 	subject = subject.as_matrix()
 	filename = filename.as_matrix()

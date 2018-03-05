@@ -6,17 +6,18 @@ from train_cae_lstm import train_cae_lstm
 from test_casme import test_casme
 def main(args):
 	# print(args[0]['train'])
+	print(args.objective_flag)
 	if args.train == "./train.py":
-		train(args.batch_size, args.spatial_epochs, args.temporal_epochs, args.train_id, args.dB, args.spatial_size, args.flag, args.tensorboard)
+		train(args.batch_size, args.spatial_epochs, args.temporal_epochs, args.train_id, args.dB, args.spatial_size, args.flag, args.objective_flag, args.tensorboard)
 	# train_smic(args.batch_size, args.spatial_epochs, args.temporal_epochs, args.train_id)
 	elif args.train == "./train_samm_cross.py":
-		train_samm_cross(args.batch_size, args.spatial_epochs, args.temporal_epochs, args.train_id, args.dB, args.spatial_size, args.flag, args.tensorboard)
+		train_samm_cross(args.batch_size, args.spatial_epochs, args.temporal_epochs, args.train_id, args.dB, args.spatial_size, args.flag, args.objective_flag, args.tensorboard)
 	elif args.train == "./test_samm_cross.py":
-		test_samm_cross(args.batch_size, args.spatial_epochs, args.temporal_epochs, args.train_id, args.dB, args.spatial_size, args.flag, args.tensorboard)
+		test_samm_cross(args.batch_size, args.spatial_epochs, args.temporal_epochs, args.train_id, args.dB, args.spatial_size, args.flag, args.objective_flag, args.tensorboard)
 	elif args.train == "./train_cae_lstm.py":
-		train_cae_lstm(args.batch_size, args.spatial_epochs, args.temporal_epochs, args.train_id, args.dB, args.spatial_size, args.flag, args.tensorboard)
+		train_cae_lstm(args.batch_size, args.spatial_epochs, args.temporal_epochs, args.train_id, args.dB, args.spatial_size, args.flag, args.objective_flag, args.tensorboard)
 	elif args.train == "./test_casme.py":
-		test_casme(args.batch_size, args.spatial_epochs, args.temporal_epochs, args.train_id, args.dB, args.spatial_size, args.flag, args.tensorboard)
+		test_casme(args.batch_size, args.spatial_epochs, args.temporal_epochs, args.train_id, args.dB, args.spatial_size, args.flag, args.objective_flag, args.tensorboard)
 
 
 
@@ -40,6 +41,7 @@ if __name__ == '__main__':
 	parser.add_argument('--dB', nargs="+", type=str, default='CASME2_TIM', help='Specify Database')
 	parser.add_argument('--spatial_size', type=int, default=224, help='Size of image')
 	parser.add_argument('--flag', type=str, default='st', help='Flags to control type of training')
+	parser.add_argument('--objective_flag', type=int, default=1, help='Flags to use either objective class or emotion class')
 	parser.add_argument('--tensorboard', type=bool, default=False, help='tensorboard display')
 
 

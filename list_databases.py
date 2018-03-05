@@ -13,12 +13,14 @@ from utilities import loading_samm_table, loading_smic_table, loading_casme_tabl
 from samm_utilitis import get_subfolders_num_crossdb, loading_samm_labels
 
 
-def load_db(db_path, list_db, spatial_size):
+def load_db(db_path, list_db, spatial_size, objective_flag):
 	db_name = list_db[0]
 	db_home = db_path + db_name  + "/"
 	db_images = db_path + db_name + "/" + db_name + "/"
 
 	cross_db_flag = 0
+
+
 
 	if db_name == 'CASME2_TIM':
 		table = loading_casme_table(db_home + 'CASME2_label_Ver_2.xls')
@@ -72,7 +74,8 @@ def load_db(db_path, list_db, spatial_size):
 			os.remove(db_home + "Classification/" + db_name + "_label.txt")		
 
 	elif db_name == 'SAMM_Optical':
-		table, table_objective = loading_samm_table(db_path, db_name)
+		table, table_objective = loading_samm_table(db_path, db_name, objective_flag)
+		# print(table)
 		listOfIgnoredSamples = []
 		IgnoredSamples_index = np.empty([0])
 
@@ -89,7 +92,7 @@ def load_db(db_path, list_db, spatial_size):
 			os.remove(db_home + "Classification/" + db_name + "_label.txt")		
 
 	elif db_name == 'SAMM_TIM10':
-		table, table_objective = loading_samm_table(db_path, db_name)
+		table, table_objective = loading_samm_table(db_path, db_name, objective_flag)
 		listOfIgnoredSamples = []
 		IgnoredSamples_index = np.empty([0])
 
@@ -105,7 +108,28 @@ def load_db(db_path, list_db, spatial_size):
 		#########################################################	
 
 		if os.path.isdir(db_home + "Classification/" + db_name + "_label.txt" ) == True:
-			os.remove(db_home + "Classification/" + db_name + "_label.txt")			
+			os.remove(db_home + "Classification/" + db_name + "_label.txt")		
+
+	elif db_name == 'SAMM_Strain':
+		table, table_objective = loading_samm_table(db_path, db_name, objective_flag)
+
+		listOfIgnoredSamples = []
+		IgnoredSamples_index = np.empty([0])
+
+		################# Variables #############################
+		r = w = spatial_size
+		subjects = 29
+		samples = 159
+		n_exp = 8
+		VidPerSubject = get_subfolders_num(db_images, IgnoredSamples_index)
+		timesteps_TIM = 10
+		data_dim = r * w
+		channel = 3
+		#########################################################	
+
+		if os.path.isdir(db_home + "Classification/" + db_name + "_label.txt" ) == True:
+			os.remove(db_home + "Classification/" + db_name + "_label.txt")	
+
 
 	elif db_name == 'SAMM_CASME_Optical':
 		# total amount of videos 253
