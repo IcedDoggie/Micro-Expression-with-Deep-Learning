@@ -32,9 +32,9 @@ def load_db(db_path, list_db, spatial_size, objective_flag):
 		n_exp = 5
 		VidPerSubject = get_subfolders_num(db_images, IgnoredSamples_index)
 
-		timesteps_TIM = 10
+		timesteps_TIM = 9
 		data_dim = r * w
-		channel = 3
+		channel = 1
 
 		if os.path.isdir(db_home + "Classification/" + db_name + "_label.txt" ) == True:
 			os.remove(db_home + "Classification/" + db_name + "_label.txt")
@@ -184,5 +184,17 @@ def restructure_data(subject, subperdb, labelpersub, subjects, n_exp, r, w, time
 	test_X = Test_X_spatial.reshape(Test_X_spatial.shape[0], channel, r, w)
 	test_y = Test_Y_spatial.reshape(Test_Y_spatial.shape[0], n_exp)
 	normalized_test_X = test_X.astype('float32') / 255.
+
+
+	print ("Train_X_shape: " + str(np.shape(Train_X)))
+	print ("Train_Y_shape: " + str(np.shape(Train_Y)))
+	print ("Test_X_shape: " + str(np.shape(Test_X)))	
+	print ("Test_Y_shape: " + str(np.shape(Test_Y)))	
+	print ("X_shape: " + str(np.shape(X)))
+	print ("y_shape: " + str(np.shape(y)))
+	print ("test_X_shape: " + str(np.shape(test_X)))	
+	print ("test_y_shape: " + str(np.shape(test_y)))	
+
+
 
 	return Train_X, Train_Y, Test_Y, Test_Y, Test_Y_gt, X, y, test_X, test_y

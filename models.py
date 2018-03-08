@@ -180,3 +180,62 @@ def convolutional_autoencoder(classes, spatial_size, channel_first=True, weights
 
 
 	return model
+
+
+def VGG_16_tim(spatial_size, classes, channels, channel_first=True, weights_path=None):
+	model = Sequential()
+	if channel_first:
+		model.add(ZeroPadding2D((1,1),input_shape=(channels, spatial_size, spatial_size)))
+	else:
+		model.add(ZeroPadding2D((1,1),input_shape=(spatial_size, spatial_size, channels)))
+
+
+	model.add(Conv2D(64, (3, 3), activation='relu'))
+	model.add(ZeroPadding2D((1,1)))
+	model.add(Conv2D(64, (3, 3), activation='relu'))
+	model.add(MaxPooling2D((2,2), strides=(2,2)))
+
+	model.add(ZeroPadding2D((1,1)))
+	model.add(Conv2D(128, (3, 3), activation='relu'))
+	model.add(ZeroPadding2D((1,1)))
+	model.add(Conv2D(128, (3, 3), activation='relu'))
+	model.add(MaxPooling2D((2,2), strides=(2,2)))
+
+	model.add(ZeroPadding2D((1,1)))
+	model.add(Conv2D(256, (3, 3), activation='relu'))
+	model.add(ZeroPadding2D((1,1)))
+	model.add(Conv2D(256, (3, 3), activation='relu'))
+	model.add(ZeroPadding2D((1,1)))
+	model.add(Conv2D(256, (3, 3), activation='relu'))
+	model.add(MaxPooling2D((2,2), strides=(2,2)))
+
+	model.add(ZeroPadding2D((1,1)))
+	model.add(Conv2D(512, (3, 3), activation='relu'))
+	model.add(ZeroPadding2D((1,1)))
+	model.add(Conv2D(512, (3, 3), activation='relu'))
+	model.add(ZeroPadding2D((1,1)))
+	model.add(Conv2D(512, (3, 3), activation='relu'))
+	model.add(MaxPooling2D((2,2), strides=(2,2)))
+
+	model.add(ZeroPadding2D((1,1)))
+	model.add(Conv2D(512, (3, 3), activation='relu'))
+	model.add(ZeroPadding2D((1,1)))
+	model.add(Conv2D(512, (3, 3), activation='relu'))
+	model.add(ZeroPadding2D((1,1)))
+	model.add(Conv2D(512, (3, 3), activation='relu'))
+	model.add(MaxPooling2D((2,2), strides=(2,2))) # 33
+
+	model.add(Flatten())
+	model.add(Dense(4096, activation='relu')) # 34
+	model.add(Dropout(0.5))
+	model.add(Dense(4096, activation='relu')) # 35
+	model.add(Dropout(0.5))
+	model.add(Dense(2622, activation='softmax')) # Dropped
+
+
+	if weights_path:
+		model.load_weights(weights_path)
+	model.pop()
+	model.add(Dense(classes, activation='softmax')) # 36
+	
+	return model

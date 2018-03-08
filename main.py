@@ -3,7 +3,9 @@ from train import train
 from train_samm_cross import train_samm_cross
 from test_samm_cross import test_samm_cross
 from train_cae_lstm import train_cae_lstm
-from test_casme import test_casme
+# from test_casme import test_casme
+from train_spatial_only import train_spatial_only
+
 def main(args):
 	# print(args[0]['train'])
 	print(args.objective_flag)
@@ -16,8 +18,11 @@ def main(args):
 		test_samm_cross(args.batch_size, args.spatial_epochs, args.temporal_epochs, args.train_id, args.dB, args.spatial_size, args.flag, args.objective_flag, args.tensorboard)
 	elif args.train == "./train_cae_lstm.py":
 		train_cae_lstm(args.batch_size, args.spatial_epochs, args.temporal_epochs, args.train_id, args.dB, args.spatial_size, args.flag, args.objective_flag, args.tensorboard)
-	elif args.train == "./test_casme.py":
-		test_casme(args.batch_size, args.spatial_epochs, args.temporal_epochs, args.train_id, args.dB, args.spatial_size, args.flag, args.objective_flag, args.tensorboard)
+	# elif args.train == "./test_casme.py":
+	# 	test_casme(args.batch_size, args.spatial_epochs, args.temporal_epochs, args.train_id, args.dB, args.spatial_size, args.flag, args.objective_flag, args.tensorboard)
+	elif args.train == "./train_spatial_only.py":
+		train_spatial_only(args.batch_size, args.spatial_epochs, args.temporal_epochs, args.train_id, args.dB, args.spatial_size, args.flag, args.objective_flag, args.tensorboard)
+
 
 
 

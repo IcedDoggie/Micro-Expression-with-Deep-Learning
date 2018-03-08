@@ -13,14 +13,13 @@ from pynvml.pynvml import *
 def console(q, lock):
 	while 1:
 		input()
-		free_mem = check_gpu_resources()
-		print("Available VRAM: %0.2f %%" % (free_mem))
-		print(q.qsize())
+		print("%i process on queue." % (q.qsize()))
 		input()
 		with lock:
 			cmd = input('> ')
-		if free_mem > 1:
-			q.put(cmd)
+
+			# q.put(cmd)
+
 
 		if cmd == 'quit':
 			break
@@ -33,12 +32,32 @@ def action_help(lock):
 	with lock:
 		print("Run python scripts, for eg: python main.py --dB 'CASME2_Optical'")		
 
-def run_process(lock):
-	with lock:
-		input()
-		cmd = input('command> ')
-		filename = input('filename> ')
-		run_command(cmd, filename)
+def run_process(q, lock):
+	while 1:
+		free_mem = check_gpu_resources()
+		print("Available VRAM: %0.2f %%" % (free_mem))
+		with lock:
+
+
+			input()
+			print("%i process on queue." % (q.qsize()))
+			cmd = input('command> ')
+			filename = input('filename> ')
+			cmd = "nohup " + cmd + " > " + filename + "&"
+			q.put(cmd)
+
+		if free_mem >= 92:
+			# print("born to run")
+			cmd = q.get()
+			run(cmd, shell=True, check=True)
+		# else:
+		# 	print("%i process new queue." % (q.qsize()))
+
+
+# def run_command(command, nohup_output):
+# 	command = "nohup " + command + " > " + nohup_output + " &"
+# 	print(command)
+# 	run(command, shell=True, check=True)
 
 
 def check_gpu_resources():
@@ -57,44 +76,29 @@ def check_gpu_resources():
 
 	return free_percentage
 
-def run_command(command, nohup_output):
-	# log in text file
-	# os.system("x-terminal-emulator -e /bin/bash")
 
-	command = "nohup " + command + " > " + nohup_output + " &"
-	print(command)
-	# command = command.split(' ')
-	
-	# command.insert(0, '-e')
-	# command.insert(0, 'x-terminal-emulator')
-	# command.insert(0, 'nohup')
-	# command.insert(-2, ' ')
-	# nohup_output = "test"
-	# print(command)
-# "nohup python main.py --dB 'CASME2_Optical' 'CASME2_Strain_TIM10' --batch_size=1 --spatial_epochs=100 --temporal_epochs=100 --train_id='default_test' --spatial_size=224 --flag='st4se' > nohup_custom.log &"	
-# ['nohup', 'python', 'main.py', '--dB', "'CASME2_Optical'", "'CASME2_Strain_TIM10'", '--batch_size=1', '--spatial_epochs=100', '--temporal_epochs=100', "--train_id='default_test'", '--spatial_size=224', "--flag='st4se'", '> nohup_custom.log &']
-	run(command, shell=True, check=True)
-	# call(['exec', 'bash'])
-	# call(command
 
 def main():
-	cmd_actions = {'help': action_help, 'run_command': run_process}
 	cmd_queue = queue.Queue()
-	stdout_lock = threading.Lock()
+	stdout_lock = threading.Lock()	
+	cmd_actions = {'help': action_help, 'run_process': run_process}
 
-	dj = threading.Thread(target=console, args=(cmd_queue, stdout_lock))
+
+	dj = threading.Thread(target=run_process, args=(cmd_queue, stdout_lock))
 	dj.start()
 
 	while 1:
 		# getting the next command from queue
-		cmd = cmd_queue.get()
-		
-		if cmd == 'quit':
-			break
 
-		# execute action
-		action = cmd_actions.get(cmd, invalid_input)
-		action(stdout_lock)
+		# print("queue")
+		cmd = cmd_queue.qsize()
+
+		# if cmd == 'quit':
+		# 	break
+
+		# 	# execute action
+		# action = cmd_actions.get(cmd, invalid_input)
+		# action(stdout_lock)
 
 main()
 

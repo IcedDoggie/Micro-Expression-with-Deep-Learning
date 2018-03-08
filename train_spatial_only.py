@@ -14,229 +14,391 @@ from collections import Counter
 from sklearn.metrics import confusion_matrix
 import scipy.io as sio
 import pydot, graphviz
+from PIL import Image
 
 from keras.models import Sequential, Model
-from keras.layers import LSTM, Dense, TimeDistributed
 from keras.utils import np_utils, plot_model
 from keras import metrics
 from keras import backend as K
 from keras.models import model_from_json
-from keras.layers import Dense, Dropout, Flatten, Activation
+from keras.layers import Dense, Dropout, Flatten, Activation, GlobalAveragePooling2D
 from keras.layers import Conv2D, MaxPooling2D
 from keras.preprocessing.sequence import pad_sequences
 from keras import optimizers
+from keras.applications.vgg16 import VGG16 as keras_vgg16
+from keras.preprocessing.image import ImageDataGenerator, array_to_img
 import keras
-
-import theano
+from keras.callbacks import EarlyStopping
 
 from labelling import collectinglabel
 from reordering import readinput
-from evaluationmatrix import fpr
+from evaluationmatrix import fpr, weighted_average_recall, unweighted_average_recall
 from utilities import Read_Input_Images, get_subfolders_num, data_loader_with_LOSO, label_matching, duplicate_channel
-from models import VGG_16
+from utilities import loading_smic_table, loading_casme_table, loading_samm_table, ignore_casme_samples, ignore_casmergb_samples # data loading scripts
+from utilities import record_loss_accuracy, record_weights, record_scores, LossHistory # recording scripts
+from utilities import sanity_check_image, gpu_observer
+from samm_utilitis import get_subfolders_num_crossdb, Read_Input_Images_SAMM_CASME, loading_samm_labels
 
-############## Path Preparation ######################
-dB = "CASME2_TIM"
-workplace = '/media/ice/OS/Datasets/' + dB + "/"
-inputDir = '/media/ice/OS/Datasets/' + dB + "/" + dB + "/" 
-######################################################
+from list_databases import load_db, restructure_data
+from models import VGG_16, temporal_module, VGG_16_4_channels, convolutional_autoencoder, VGG_16_tim
 
-############# Reading Labels from XCEL ########################
-wb=xlrd.open_workbook('/media/ice/OS/Datasets/CASME2_label_Ver_2.xls')
-ws=wb.sheet_by_index(0)    
-colm=ws.col_slice(colx=0,start_rowx=1,end_rowx=None)
-iD=[str(x.value) for x in colm]
-colm=ws.col_slice(colx=1,start_rowx=1,end_rowx=None)
-vidName=[str(x.value) for x in colm]
-colm=ws.col_slice(colx=6,start_rowx=1,end_rowx=None)
-expression=[str(x.value) for x in colm]
-table=np.transpose(np.array([np.array(iD),np.array(vidName),np.array(expression)],dtype=str))
-# print(table)
-###############################################################
+def train_spatial_only(batch_size, spatial_epochs, temporal_epochs, train_id, list_dB, spatial_size, flag, objective_flag, tensorboard):
+	############## Path Preparation ######################
+	root_db_path = "/media/ice/OS/Datasets/"
+	tensorboard_path = "/home/ice/Documents/Micro-Expression/tensorboard/"
+	if os.path.isdir(root_db_path + 'Weights/'+ str(train_id) ) == False:
+		os.mkdir(root_db_path + 'Weights/'+ str(train_id) )
+
+	######################################################
+
+	############## Variables ###################
+	dB = list_dB[0]
+	r, w, subjects, samples, n_exp, VidPerSubject, timesteps_TIM, data_dim, channel, table, listOfIgnoredSamples, db_home, db_images, cross_db_flag = load_db(root_db_path, list_dB, spatial_size, objective_flag)
+
+	# avoid confusion
+	if cross_db_flag == 1:
+		list_samples = listOfIgnoredSamples
+
+	# total confusion matrix to be used in the computation of f1 score
+	tot_mat = np.zeros((n_exp, n_exp))
+
+	history = LossHistory()
+	stopping = EarlyStopping(monitor='loss', min_delta = 0, mode = 'min')
+
+	############################################
+
+	############## Flags ####################
+	tensorboard_flag = tensorboard
+	resizedFlag = 1
+	train_spatial_flag = 0
+	train_temporal_flag = 0
+	svm_flag = 0
+	finetuning_flag = 0
+	cam_visualizer_flag = 0
+	channel_flag = 0
+	tim_channel_flag = 0
 
 
-###################### Samples to-be ignored ##########################
-# ignored due to:
-# 1) no matching label.
-# 2) fear, sadness are excluded due to too little data, see CASME2 paper for more
-IgnoredSamples = ['sub09/EP13_02/','sub09/EP02_02f/','sub10/EP13_01/','sub17/EP15_01/',
-					'sub17/EP15_03/','sub19/EP19_04/','sub24/EP10_03/','sub24/EP07_01/',
-					'sub24/EP07_04f/','sub24/EP02_07/','sub26/EP15_01/']
-listOfIgnoredSamples=[]
-for s in range(len(IgnoredSamples)):
-	if s==0:
-		listOfIgnoredSamples=[inputDir+IgnoredSamples[s]]
+	if flag == 's':
+		train_spatial_flag = 1
+		finetuning_flag = 1
+	elif flag == 'sf':
+		train_spatial_flag = 1
+		tim_channel_flag = 1
+
+	elif flag == 't':
+		train_temporal_flag = 1
+	elif flag == 'nofine':
+		svm_flag = 1
+	elif flag == 'scratch':
+		train_spatial_flag = 1
+		train_temporal_flag = 1
+
+	#########################################
+
+	############ Reading Images and Labels ################
+	if cross_db_flag == 1:
+		SubperdB = Read_Input_Images_SAMM_CASME(db_images, list_samples, listOfIgnoredSamples, dB, resizedFlag, table, db_home, spatial_size, channel)
 	else:
-		listOfIgnoredSamples.append(inputDir+IgnoredSamples[s])
-### Get index of samples to be ignored in terms of subject id ###
-IgnoredSamples_index = np.empty([0])
-for item in IgnoredSamples:
-	item = item.split('sub', 1)[1]
-	item = int(item.split('/', 1)[0]) - 1 
-	IgnoredSamples_index = np.append(IgnoredSamples_index, item)
-
-#######################################################################
-
-############## Variables ###################
-spatial_size = 224
-r=w=spatial_size
-resizedFlag=1
-subjects=1
-samples=246
-n_exp=5
-VidPerSubject = get_subfolders_num(inputDir, IgnoredSamples_index)
-timesteps_TIM = 10
-data_dim = r * w
-pad_sequence = 10
-############################################
-
-################## Clearing labels.txt ################
-os.remove(workplace + "Classification/CASME2_TIM_label.txt")
-#######################################################
-
-############ Reading Images and Labels ################
-SubperdB, vid_id, sub_id = Read_Input_Images(inputDir, listOfIgnoredSamples, dB, resizedFlag, table, workplace, spatial_size)
-print("Loaded Images into the tray...")
-labelperSub = label_matching(workplace, dB, subjects, VidPerSubject)
-print("Loaded Labels into the tray...")
-#######################################################
+		SubperdB = Read_Input_Images(db_images, listOfIgnoredSamples, dB, resizedFlag, table, db_home, spatial_size, channel, objective_flag)
 
 
-########### Model #######################
-sgd = optimizers.SGD(lr=0.0001, decay=1e-7, momentum=0.9, nesterov=True)
-adam = optimizers.Adam(lr=0.00001)
-#########################################
+	labelperSub = label_matching(db_home, dB, subjects, VidPerSubject)
+	print("Loaded Images into the tray...")
+	print("Loaded Labels into the tray...")
 
-################# Pretrained Model ###################
-vgg_model = VGG_16('VGG_Face_Deep_16.h5')
-vgg_model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=[metrics.sparse_categorical_accuracy])
-plot_model(vgg_model, to_file='model.png', show_shapes=True)
-######################################################
+	if channel_flag == 1:
+		aux_db1 = list_dB[1]
+		db_strain_img = root_db_path + aux_db1 + "/" + aux_db1 + "/"
+		if cross_db_flag == 1:
+			SubperdB = Read_Input_Images_SAMM_CASME(db_strain_img, list_samples, listOfIgnoredSamples, aux_db1, resizedFlag, table, db_home, spatial_size, 1)
+		else:
+			SubperdB_strain = Read_Input_Images(db_strain_img, listOfIgnoredSamples, aux_db1, resizedFlag, table, db_home, spatial_size, 1, objective_flag)
 
-########### Training Process ############
-# Todo:
-# 1) LOSO (done)
-# 2) call model (done)
-# 3) saving model architecture
-# 4) Saving Checkpoint
-# 5) make prediction (done)
-tensorboard_path = "/home/ice/Documents/Micro-Expression/tensorboard/"
-tot_mat = np.zeros((n_exp,n_exp))
-spatial_weights_name = 'vgg_spatial_ID_9.h5'
-temporal_weights_name = 'temporal_ID_9.h5'
-for sub in range(subjects):
-	# cat_path = tensorboard_path + str(sub) + "/"
-	# os.mkdir(cat_path)
-	# tbCallBack = keras.callbacks.TensorBoard(log_dir=cat_path, write_graph=True)
+	elif channel_flag == 2:	
+		aux_db1 = list_dB[1]
+		aux_db2 = list_dB[2]
+		db_strain_img = root_db_path + aux_db1 + "/" + aux_db1 + "/"	
+		db_gray_img = root_db_path + aux_db2 + "/" + aux_db2 + "/"
+		if cross_db_flag == 1:
+			SubperdB_strain = Read_Input_Images_SAMM_CASME(db_strain_img, list_samples, listOfIgnoredSamples, aux_db1, resizedFlag, table, db_home, spatial_size, 1)
+			SubperdB_gray = Read_Input_Images_SAMM_CASME(db_gray_img, list_samples, listOfIgnoredSamples, aux_db2, resizedFlag, table, db_home, spatial_size, 1)
+		else:
+			SubperdB_strain = Read_Input_Images(db_strain_img, listOfIgnoredSamples, aux_db1, resizedFlag, table, db_home, spatial_size, 1, objective_flag)
+			SubperdB_gray = Read_Input_Images(db_gray_img, listOfIgnoredSamples, aux_db2, resizedFlag, table, db_home, spatial_size, 1, objective_flag)
 
-	# cat_path2 = tensorboard_path + str(sub) + "spat/"
-	# os.mkdir(cat_path2)
-	# tbCallBack2 = keras.callbacks.TensorBoard(log_dir=cat_path2, write_graph=True)
-
-	image_label_mapping = np.empty([0])
-
-	Train_X, Train_Y, Test_X, Test_Y, Test_Y_gt = data_loader_with_LOSO(sub, SubperdB, labelperSub, subjects, vid_id, sub_id)
-
-	# Rearrange Training labels into a vector of images, breaking sequence
-	Train_X_spatial = Train_X.reshape(Train_X.shape[0]*10, r, w, 1)
-	Test_X_spatial = Test_X.reshape(Test_X.shape[0]* 10, r, w, 1)
-
-	# Extend Y labels 10 fold, so that all images have labels
-	Train_Y_spatial = np.repeat(Train_Y, 10, axis=0)
-	Test_Y_spatial = np.repeat(Test_Y, 10, axis=0)
+	elif channel_flag == 3:
+		aux_db1 = list_dB[1]		
+		db_strain_img = root_db_path + aux_db1 + "/" + aux_db1 + "/"		
+		if cross_db_flag == 1:
+			SubperdB = Read_Input_Images_SAMM_CASME(db_strain_img, list_samples, listOfIgnoredSamples, aux_db1, resizedFlag, table, db_home, spatial_size, 3)
+		else:
+			SubperdB_strain = Read_Input_Images(db_strain_img, listOfIgnoredSamples, aux_db1, resizedFlag, table, db_home, spatial_size, 3, objective_flag)
+	
+	elif channel_flag == 4: 
+		aux_db1 = list_dB[1]
+		aux_db2 = list_dB[2]		
+		db_strain_img = root_db_path + aux_db1 + "/" + aux_db1 + "/"	
+		db_gray_img = root_db_path + aux_db2 + "/" + aux_db2 + "/"		
+		if cross_db_flag == 1:
+			SubperdB_strain = Read_Input_Images_SAMM_CASME(db_strain_img, list_samples, listOfIgnoredSamples, aux_db1, resizedFlag, table, db_home, spatial_size, 3)
+			SubperdB_gray = Read_Input_Images_SAMM_CASME(db_gray_img, list_samples, listOfIgnoredSamples, aux_db2, resizedFlag, table, db_home, spatial_size, 3)
+		else:
+			SubperdB_strain = Read_Input_Images(db_strain_img, listOfIgnoredSamples, aux_db1, resizedFlag, table, db_home, spatial_size, 3, objective_flag)
+			SubperdB_gray = Read_Input_Images(db_gray_img, listOfIgnoredSamples, aux_db2, resizedFlag, table, db_home, spatial_size, 3, objective_flag)
 
 	
+	#######################################################
 
-	# Duplicate channel of input image
-	Train_X_spatial = duplicate_channel(Train_X_spatial)
-	Test_X_spatial = duplicate_channel(Test_X_spatial)
-	
 
-	# print ("Train_X_shape: " + str(np.shape(Train_X_spatial)))
-	# print ("Train_Y_shape: " + str(np.shape(Train_Y_spatial)))
-	# print ("Test_X_shape: " + str(np.shape(Test_X_spatial)))	
-	# print ("Test_Y_shape: " + str(np.shape(Test_Y_spatial)))	
-	# print(Train_X_spatial)
-	##################### VGG FACE 16 #########################
+	########### Model Configurations #######################
+	sgd = optimizers.SGD(lr=0.0001, decay=1e-7, momentum=0.9, nesterov=True)
+	adam = optimizers.Adam(lr=0.00001, decay=0.000001)
 
+	# Different Conditions for Temporal Learning ONLY
+	if train_spatial_flag == 0 and train_temporal_flag == 1 and dB != 'CASME2_Optical':
+		data_dim = spatial_size * spatial_size
+	elif train_spatial_flag == 0 and train_temporal_flag == 1 and dB == 'CASME2_Optical':
+		data_dim = spatial_size * spatial_size * 3
+	elif channel_flag == 3:
+		data_dim = 8192
+	elif channel_flag == 4:
+		data_dim = 12288
+	else:
+		data_dim = 4096
+
+	########################################################
+
+
+
+
+
+	########### Training Process ############
+
+	for sub in range(subjects):
+
+
+		spatial_weights_name = root_db_path + 'Weights/'+ str(train_id) + '/vgg_spatial_'+ str(train_id) + '_' + str(dB) + '_'
+		spatial_weights_name_strain = root_db_path + 'Weights/' + str(train_id) + '/vgg_spatial_strain_'+ str(train_id) + '_' + str(dB) + '_' 
+		spatial_weights_name_gray = root_db_path + 'Weights/' + str(train_id) + '/vgg_spatial_gray_'+ str(train_id) + '_' + str(dB) + '_'
+
+		temporal_weights_name = root_db_path + 'Weights/' + str(train_id) + '/temporal_ID_' + str(train_id) + '_' + str(dB) + '_' 
+
+		ae_weights_name = root_db_path + 'Weights/' + str(train_id) + '/autoencoder_' + str(train_id) + '_' + str(dB) + '_'
+		ae_weights_name_strain = root_db_path + 'Weights/' + str(train_id) + '/autoencoder_strain_' + str(train_id) + '_' + str(dB) + '_'
+
+
+		############### Reinitialization & weights reset of models ########################
+		temporal_model = temporal_module(data_dim=data_dim, timesteps_TIM=timesteps_TIM)
+		temporal_model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=[metrics.categorical_accuracy])
+
+		conv_ae = convolutional_autoencoder(spatial_size = spatial_size, classes = n_exp)
+		conv_ae.compile(loss='binary_crossentropy', optimizer=adam)
+
+		if channel_flag == 1:
+			vgg_model = VGG_16_4_channels(classes=n_exp, channels=4, spatial_size = spatial_size)
+			vgg_model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=[metrics.categorical_accuracy])
+
+		elif channel_flag == 2:
+			vgg_model = VGG_16_4_channels(classes=n_exp, channels=5, spatial_size = spatial_size)
+			vgg_model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=[metrics.categorical_accuracy])
+
+
+		elif channel_flag == 3 or channel_flag == 4:
+			vgg_model = VGG_16(spatial_size = spatial_size, classes=n_exp, channels=3, weights_path='VGG_Face_Deep_16.h5')
+			vgg_model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=[metrics.categorical_accuracy])
+
+			vgg_model_strain = VGG_16(spatial_size = spatial_size, classes=n_exp, channels=3, weights_path='VGG_Face_Deep_16.h5')
+			vgg_model_strain.compile(loss='categorical_crossentropy', optimizer=adam, metrics=[metrics.categorical_accuracy])
+
+			if channel_flag == 4:
+				vgg_model_gray = VGG_16(spatial_size = spatial_size, classes=n_exp, channels=3, weights_path='VGG_Face_Deep_16.h5')
+				vgg_model_gray.compile(loss='categorical_crossentropy', optimizer=adam, metrics=[metrics.categorical_accuracy])
+
+		elif tim_channel_flag == 1:
+			vgg_model = VGG_16_tim(spatial_size = spatial_size, classes=n_exp, channels=9)
+			vgg_model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=[metrics.categorical_accuracy])
+
+		else:
+			vgg_model = VGG_16(spatial_size = spatial_size, classes=n_exp, channels=3, weights_path='VGG_Face_Deep_16.h5')
+			vgg_model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=[metrics.categorical_accuracy])
+
+		svm_classifier = SVC(kernel='linear', C=1)
+		####################################################################################
 		
-
-	X = Train_X_spatial.reshape(Train_X_spatial.shape[0], r, w, 3)
-	y = Train_Y_spatial.reshape(Train_Y_spatial.shape[0], 5)
-
-	test_X = Test_X_spatial.reshape(Test_X_spatial.shape[0], r, w, 3)
-	# test_y = Test_Y_spatial.reshape(Test_Y_spatial.shape[0], 5)
-	test_y = np.repeat(Test_Y_gt, 10, axis=0)
-
-	for layer in vgg_model.layers[:33]:
-		layer.trainable = False
-
-	vgg_model.fit(X, y, batch_size=1, epochs=1, shuffle=True)
-	# vgg_model.fit(X, y, batch_size=1, epochs=10, shuffle=True, callbacks=[tbCallBack2])
-	vgg_model.save_weights(spatial_weights_name)
-	###########################################################
-
-
-	################### Formal Evaluation #########################
-	predict = vgg_model.predict_classes(test_X, batch_size=1)
-	print(predict)
-	# print(Test_Y_gt)
-	print(test_y)
-
-
-	ct=confusion_matrix(test_y, predict)
-	# check the order of the CT
-	order=np.unique(np.concatenate((predict,test_y)))
-	
-	# create an array to hold the CT for each CV
-	mat=np.zeros((n_exp,n_exp))
-	# put the order accordingly, in order to form the overall ConfusionMat
-	for m in range(len(order)):
-		for n in range(len(order)):
-			mat[int(order[m]),int(order[n])]=ct[m,n]
-		   
-	tot_mat = mat + tot_mat
-	################################################################
-	
-
-	#################### cumulative f1 plotting ######################
-	microAcc=np.trace(tot_mat)/np.sum(tot_mat)
-	[f1,precision,recall]=fpr(tot_mat,n_exp)
-
-
-	file = open(workplace+'Classification/'+ 'Result/'+dB+'/f1.txt', 'a')
-	file.write(str(f1) + "\n")
-	file.close()
-	##################################################################
-
-	################# write each CT of each CV into .txt file #####################
-	if not os.path.exists(workplace+'Classification/'+'Result/'+dB+'/'):
-		os.mkdir(workplace+'Classification/'+ 'Result/'+dB+'/')
 		
-	with open(workplace+'Classification/'+ 'Result/'+dB+'/sub_CT.txt','a') as csvfile:
-			thewriter=csv.writer(csvfile, delimiter=' ')
-			thewriter.writerow('Sub ' + str(sub+1))
-			thewriter=csv.writer(csvfile,dialect=csv.excel_tab)
-			for row in ct:
-				thewriter.writerow(row)
-			thewriter.writerow(order)
-			thewriter.writerow('\n')
+		############ for tensorboard ###############
+		if tensorboard_flag == 1:
+			cat_path = tensorboard_path + str(sub) + "/"
+			os.mkdir(cat_path)
+			tbCallBack = keras.callbacks.TensorBoard(log_dir=cat_path, write_graph=True)
+
+			cat_path2 = tensorboard_path + str(sub) + "spat/"
+			os.mkdir(cat_path2)
+			tbCallBack2 = keras.callbacks.TensorBoard(log_dir=cat_path2, write_graph=True)
+		#############################################
+
+		Train_X, Train_Y, Test_X, Test_Y, Test_Y_gt, X, y, test_X, test_y = restructure_data(sub, SubperdB, labelperSub, subjects, n_exp, r, w, timesteps_TIM, channel)
+
+
+		# Special Loading for 4-Channel
+		if channel_flag == 1:
+			_, _, _, _, _, Train_X_Strain, Train_Y_Strain, Test_X_Strain, Test_Y_Strain = restructure_data(sub, SubperdB_strain, labelperSub, subjects, n_exp, r, w, timesteps_TIM, 1)
 			
-	if sub==subjects-1:
-			# compute the accuracy, F1, P and R from the overall CT
-			microAcc=np.trace(tot_mat)/np.sum(tot_mat)
-			[f1,p,r]=fpr(tot_mat,n_exp)
-			print(tot_mat)
-			print("F1-Score: " + str(f1))
-			# save into a .txt file
-			with open(workplace+'Classification/'+ 'Result/'+dB+'/final_CT.txt','w') as csvfile:
-				thewriter=csv.writer(csvfile,dialect=csv.excel_tab)
-				for row in tot_mat:
-					thewriter.writerow(row)
-					
-				thewriter=csv.writer(csvfile, delimiter=' ')
-				thewriter.writerow('micro:' + str(microAcc))
-				thewriter.writerow('F1:' + str(f1))
-				thewriter.writerow('Precision:' + str(p))
-				thewriter.writerow('Recall:' + str(r))		
-	###############################################################################
+			# verify
+			# sanity_check_image(Test_X_Strain, 1)
+
+			# Concatenate Train X & Train_X_Strain
+			X = np.concatenate((X, Train_X_Strain), axis=1)
+			test_X = np.concatenate((test_X, Test_X_Strain), axis=1)
+
+			total_channel = 4
+
+		elif channel_flag == 2:
+			_, _, _, _, _, Train_X_Strain, Train_Y_Strain, Test_X_Strain, Test_Y_Strain = restructure_data(sub, SubperdB_strain, labelperSub, subjects, n_exp, r, w, timesteps_TIM, 1)
+
+			_, _, _, _, _, Train_X_Gray, Train_Y_Gray, Test_X_Gray, Test_Y_Gray = restructure_data(sub, SubperdB_gray, labelperSub, subjects, n_exp, r, w, timesteps_TIM, 1)
+
+			# Concatenate Train_X_Strain & Train_X & Train_X_gray
+			X = np.concatenate((X, Train_X_Strain, Train_X_gray), axis=1)
+			test_X = np.concatenate((test_X, Test_X_Strain, Test_X_gray), axis=1)	
+
+			total_channel = 5		
+		
+		elif channel_flag == 3:
+			_, _, _, _, _, Train_X_Strain, Train_Y_Strain, Test_X_Strain, Test_Y_Strain = restructure_data(sub, SubperdB_strain, labelperSub, subjects, n_exp, r, w, timesteps_TIM, 3)
+
+		elif channel_flag == 4:
+			_, _, _, _, _, Train_X_Strain, Train_Y_Strain, Test_X_Strain, Test_Y_Strain = restructure_data(sub, SubperdB_strain, labelperSub, subjects, n_exp, r, w, timesteps_TIM, 3)
+			_, _, _, _, _, Train_X_Gray, Train_Y_Gray, Test_X_Gray, Test_Y_Gray = restructure_data(sub, SubperdB_gray, labelperSub, subjects, n_exp, r, w, timesteps_TIM, 3)
+
+		elif tim_channel_flag == 1:
+			# do the stacking
+			X = X.reshape(Train_X.shape[0], 9, 224, 224)
+			test_X = test_X.reshape(Test_X.shape[0], 9, 224, 224)
+			stacked_X = []
+			stacked_X_test = []
+
+			for vids in range(len(X[:])):
+				first_frame = X[vids, 0, :, :]
+				first_frame = first_frame.reshape(224, 224, 1)
+
+
+				# print(first_frame.shape)
+				for frames in range(len(X[vids, :])-1) :
+					subsequent_frame = X[vids, frames + 1, :, :]
+					subsequent_frame = subsequent_frame.reshape(224, 224, 1)
+				
+					first_frame = np.concatenate((first_frame, subsequent_frame), axis=2)
+				stacked_X += [first_frame]
+
+			for vids in range(len(test_X[:])):
+				first_frame = test_X[vids, 0, :, :]
+				first_frame = first_frame.reshape(224, 224, 1)
+
+				for frames in range(len(test_X[vids, :])-1) :
+					subsequent_frame = test_X[vids, frames + 1, :, :]
+					subsequent_frame = subsequent_frame.reshape(224, 224, 1)
+					first_frame = np.concatenate((first_frame, subsequent_frame), axis=2)
+
+				stacked_X_test += [first_frame]
+			
+
+			stacked_X = np.asarray(stacked_X)
+			stacked_X_test = np.asarray(stacked_X_test)
+			X = stacked_X
+			test_X = stacked_X_test
+			X = X.reshape(Train_X.shape[0], timesteps_TIM, 224, 224)
+			test_X = test_X.reshape(Test_X.shape[0], timesteps_TIM, 224, 224)
+
+			print(X.shape)
+			print(test_X.shape)
+
+			y = Train_Y
+
+			# run sanity check
+			sanity_X = stacked_X
+			sanity_check_image(sanity_X, 1)
+
+
+		############### check gpu resources ####################
+		gpu_observer()
+		########################################################
+
+		##################### Training & Testing #########################
+		# conv weights must be freezed for transfer learning 
+		if finetuning_flag == 1:
+			for layer in vgg_model.layers[:33]:
+				layer.trainable = False
+			if channel_flag == 3 or channel_flag == 4:
+				for layer in vgg_model_strain.layers[:33]:
+					layer.trainable = False
+				if channel_flag == 4:
+					for layer in vgg_model_gray.layers[:33]:
+						layer.trainable = False					
+
+		if train_spatial_flag == 1 and tim_channel_flag == 1:
+
+			# Spatial Training
+
+			if channel_flag == 3 or channel_flag == 4:
+				vgg_model_strain.fit(Train_X_Strain, y, batch_size=batch_size, epochs=spatial_epochs, shuffle=True, callbacks=[stopping])
+				model_strain = record_weights(vgg_model_strain, spatial_weights_name_strain, sub)
+				output_strain = model_strain.predict(Train_X_Strain, batch_size=batch_size)
+				if channel_flag == 4:
+					vgg_model_gray.fit(Train_X_Gray, y, batch_size=batch_size, epochs=spatial_epochs, shuffle=True, callbacks=[stopping])
+					model_gray = record_weights(vgg_model_gray, spatial_weights_name_gray, sub)
+					output_gray = model_gray.predict(Train_X_Gray, batch_size=batch_size)
+
+			else:			
+				vgg_model.fit(X, y, batch_size=batch_size, epochs=spatial_epochs, shuffle=True, callbacks=[history, stopping])
+
+			# record f1 and loss
+			record_loss_accuracy(db_images, train_id, dB, history, 's')		
+
+			# save vgg weights
+			model = record_weights(vgg_model, spatial_weights_name, sub)
+
+			# Spatial Encoding
+			output = model.predict(X, batch_size = batch_size)
+
+
+			# Testing
+
+			predict = vgg.predict_classes(output, batch_size=batch_size)
+		##############################################################
+
+		#################### Confusion Matrix Construction #############
+		print (predict)
+		print (Test_Y_gt)	
+
+		ct = confusion_matrix(Test_Y_gt,predict)
+		# check the order of the CT
+		order = np.unique(np.concatenate((predict,Test_Y_gt)))
+		
+		# create an array to hold the CT for each CV
+		mat = np.zeros((n_exp,n_exp))
+		# put the order accordingly, in order to form the overall ConfusionMat
+		for m in range(len(order)):
+			for n in range(len(order)):
+				mat[int(order[m]),int(order[n])]=ct[m,n]
+			   
+		tot_mat = mat + tot_mat
+		################################################################
+		
+		#################### cumulative f1 plotting ######################
+		microAcc = np.trace(tot_mat) / np.sum(tot_mat)
+		[f1,precision,recall] = fpr(tot_mat,n_exp)
+
+		file = open(db_home+'Classification/'+ 'Result/'+dB+'/f1_' + str(train_id) +  '.txt', 'a')
+		file.write(str(f1) + "\n")
+		file.close()
+		##################################################################
+
+		################# write each CT of each CV into .txt file #####################
+		record_scores(db_home, dB, ct, sub, order, tot_mat, n_exp, subjects)
+		war = weighted_average_recall(tot_mat, n_exp, samples)
+		uar = unweighted_average_recall(tot_mat, n_exp)
+		print("war: " + str(war))
+		print("uar: " + str(uar))	
+		###############################################################################

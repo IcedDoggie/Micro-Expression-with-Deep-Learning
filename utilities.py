@@ -150,8 +150,8 @@ def standard_data_loader(SubjectPerDatabase, y_labels, subjects, classes):
 	Train_Y=np.hstack(Train_Y)
 	Train_Y=np_utils.to_categorical(Train_Y, classes)
 	#############################################################
-	print ("Train_X_shape: " + str(np.shape(Train_X)))
-	print ("Train_Y_shape: " + str(np.shape(Train_Y)))
+	# print ("Train_X_shape: " + str(np.shape(Train_X)))
+	# print ("Train_Y_shape: " + str(np.shape(Train_Y)))
 
 
 	return Train_X, Train_Y, Test_Y_gt
@@ -189,10 +189,6 @@ def data_loader_with_LOSO(subject, SubjectPerDatabase, y_labels, subjects, class
 	Train_Y=np.hstack(Train_Y)
 	Train_Y=np_utils.to_categorical(Train_Y, classes)
 	#############################################################
-	print ("Train_X_shape: " + str(np.shape(Train_X)))
-	print ("Train_Y_shape: " + str(np.shape(Train_Y)))
-	print ("Test_X_shape: " + str(np.shape(Test_X)))	
-	print ("Test_Y_shape: " + str(np.shape(Test_Y)))	
 
 	return Train_X, Train_Y, Test_X, Test_Y, Test_Y_gt
 
@@ -489,7 +485,9 @@ def record_weights(model, weights_name, subject, flag):
 	return model
 
 def sanity_check_image(X, channel):
-	item = X[0,:,:,:]
+	# item = X[0,:,:,:]
+	item = X[0, :, :, 0]
+
 	item = item.reshape(224, 224, channel)
 
 	cv2.imwrite('sanity_check.png', item)
@@ -504,6 +502,9 @@ def gpu_observer():
 		print("%s: %0.1f MB free, %0.1f MB used, %0.1f MB total" % (
 			nvmlDeviceGetName(handle),
 			meminfo.free/1024.**2, meminfo.used/1024.**2, meminfo.total/1024.**2))    
+
+# def concatenate_tim():
+
 
 def visualize_gradcam():
 	# visualize cam
