@@ -317,10 +317,10 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, list_dB, spatia
 				vgg_model.fit(X, y, batch_size=batch_size, epochs=spatial_epochs, shuffle=True, callbacks=[history, stopping])
 
 			# record f1 and loss
-			record_loss_accuracy(db_images, train_id, dB, history, 's')		
+			record_loss_accuracy(db_images, train_id, dB, history)		
 
 			# save vgg weights
-			model = record_weights(vgg_model, spatial_weights_name, sub)
+			model = record_weights(vgg_model, spatial_weights_name, sub, flag)
 
 			# Spatial Encoding
 			output = model.predict(X, batch_size = batch_size)
@@ -340,7 +340,7 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, list_dB, spatia
 				temporal_model.fit(features, Train_Y, batch_size=batch_size, epochs=temporal_epochs)	
 
 			# save temporal weights
-			temporal_model = record_weights(temporal_model, temporal_weights_name, subject, 't')
+			temporal_model = record_weights(temporal_model, temporal_weights_name, subject, flag)
 
 			# Testing
 			output = model.predict(test_X, batch_size = batch_size)

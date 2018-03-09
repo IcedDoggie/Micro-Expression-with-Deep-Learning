@@ -17,13 +17,15 @@ from sklearn.metrics import confusion_matrix
 import scipy.io as sio
 
 
-from keras.models import Sequential
+from keras.models import Sequential, Model
 from keras.layers import LSTM, Dense, TimeDistributed
 from keras.utils import np_utils
 from keras import metrics
 from keras import backend as K
 from keras.models import model_from_json
 import keras
+import pydot, graphviz
+from keras.utils import np_utils, plot_model
 
 from labelling import collectinglabel
 from reordering import readinput
@@ -419,10 +421,11 @@ class LossHistory(keras.callbacks.Callback):
 	def on_train_begin(self, logs={}):
 		self.losses = []
 		self.accuracy = []
+		self.epochs = []
 	def on_epoch_end(self, epoch, logs={}):
 		self.losses.append(logs.get('loss'))
 		self.accuracy.append(logs.get('categorical_accuracy'))
-
+		self.epochs.append(logs.get('epochs'))
 
 
 def plot_confusion_matrix(cm, classes,
@@ -476,7 +479,7 @@ def record_loss_accuracy(db_home, train_id, db, history_callback):
 def record_weights(model, weights_name, subject, flag):
 	model.save_weights(weights_name + str(subject) + ".h5")
 
-	if flag == 's':
+	if flag == 's' or flag == 'sf':
 		model = Model(inputs=model.input, outputs=model.layers[35].output)
 		plot_model(model, to_file = "spatial_module_FULL_TRAINING.png", show_shapes=True)	
 	else:

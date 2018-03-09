@@ -32,7 +32,7 @@ def action_help(lock):
 	with lock:
 		print("Run python scripts, for eg: python main.py --dB 'CASME2_Optical'")		
 
-def run_process(q, lock):
+def run_process(q, lock, threshold):
 	while 1:
 		free_mem = check_gpu_resources()
 		print("Available VRAM: %0.2f %%" % (free_mem))
@@ -46,12 +46,9 @@ def run_process(q, lock):
 			cmd = "nohup " + cmd + " > " + filename + "&"
 			q.put(cmd)
 
-		if free_mem >= 92:
-			# print("born to run")
+		if free_mem >= float(threshold):
 			cmd = q.get()
 			run(cmd, shell=True, check=True)
-		# else:
-		# 	print("%i process new queue." % (q.qsize()))
 
 
 # def run_command(command, nohup_output):
@@ -83,22 +80,15 @@ def main():
 	stdout_lock = threading.Lock()	
 	cmd_actions = {'help': action_help, 'run_process': run_process}
 
+	threshold = input('Threshold > ')
 
-	dj = threading.Thread(target=run_process, args=(cmd_queue, stdout_lock))
+	dj = threading.Thread(target=run_process, args=(cmd_queue, stdout_lock, threshold))
 	dj.start()
 
 	while 1:
-		# getting the next command from queue
 
-		# print("queue")
 		cmd = cmd_queue.qsize()
 
-		# if cmd == 'quit':
-		# 	break
-
-		# 	# execute action
-		# action = cmd_actions.get(cmd, invalid_input)
-		# action(stdout_lock)
 
 main()
 

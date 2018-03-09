@@ -354,18 +354,13 @@ def train_spatial_only(batch_size, spatial_epochs, temporal_epochs, train_id, li
 				vgg_model.fit(X, y, batch_size=batch_size, epochs=spatial_epochs, shuffle=True, callbacks=[history, stopping])
 
 			# record f1 and loss
-			record_loss_accuracy(db_images, train_id, dB, history, 's')		
+			record_loss_accuracy(db_images, train_id, dB, history)		
 
 			# save vgg weights
-			model = record_weights(vgg_model, spatial_weights_name, sub)
-
-			# Spatial Encoding
-			output = model.predict(X, batch_size = batch_size)
-
-
+			model = record_weights(vgg_model, spatial_weights_name, sub, flag)
+			
 			# Testing
-
-			predict = vgg.predict_classes(output, batch_size=batch_size)
+			predict = vgg_model.predict_classes(test_X, batch_size=batch_size)
 		##############################################################
 
 		#################### Confusion Matrix Construction #############
