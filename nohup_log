@@ -1,0 +1,25 @@
+Using Theano backend.
+Using cuDNN version 5110 on context None
+Mapped name None to device cuda0: GeForce GTX 850M (0000:0A:00.0)
+Namespace(batch_size=1, dB=['CASME2_TIM'], flag='sfRonin', objective_flag=1, spatial_epochs=100, spatial_size=224, temporal_epochs=40, tensorboard=False, train='./train_spatial_only.py', train_id='default_test')
+1
+CASME2_TIM
+Loaded Images into the tray...
+Loaded Labels into the tray...
+Train_X_shape: (237, 9, 50176)
+Train_Y_shape: (237, 5)
+Test_X_shape: (9, 9, 50176)
+Test_Y_shape: (9, 5)
+X_shape: (2133, 1, 224, 224)
+y_shape: (2133, 5)
+test_X_shape: (81, 1, 224, 224)
+test_y_shape: (81, 5)
+b'GeForce GTX 850M': 2594.4 MB free, 1450.1 MB used, 4044.5 MB total
+Traceback (most recent call last):
+  File "main.py", line 56, in <module>
+    main(args)
+  File "main.py", line 24, in main
+    train_spatial_only(args.batch_size, args.spatial_epochs, args.temporal_epochs, args.train_id, args.dB, args.spatial_size, args.flag, args.objective_flag, args.tensorboard)
+  File "/home/ice/Documents/Micro-Expression/train_spatial_only.py", line 367, in train_spatial_only
+    print (predict)
+UnboundLocalError: local variable 'predict' referenced before assignment
