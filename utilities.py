@@ -473,7 +473,7 @@ def record_loss_accuracy(db_home, train_id, db, history_callback):
 	file_loss.close()	
 
 	file_loss = open(db_home + 'Classification/' + 'Result/'+ db + '/epoch_' + str(train_id) +  '.txt', 'a')
-	file_loss.write(str(history.epoch) + "\n")
+	file_loss.write(str(history_callback.epochs) + "\n")
 	file_loss.close()		
 
 def record_weights(model, weights_name, subject, flag):
@@ -487,7 +487,7 @@ def record_weights(model, weights_name, subject, flag):
 
 	return model
 
-def sanity_check_image(X, channel):
+def sanity_check_image(X, channel, spatial_size):
 	# item = X[0,:,:,:]
 	item = X[0, :, :, 0]
 

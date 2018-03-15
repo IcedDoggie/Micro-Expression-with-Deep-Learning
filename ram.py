@@ -16,13 +16,16 @@ from sklearn.metrics import confusion_matrix
 import scipy.io as sio
 
 
-from keras.models import Sequential
-from keras.layers import LSTM, Dense, TimeDistributed
-from keras.utils import np_utils
-from keras import metrics
-from keras import backend as K
-from keras.models import model_from_json
-import keras
+from keras.models import Sequential, Model
+from keras.layers.core import Flatten, Dense, Dropout
+from keras.layers.convolutional import Conv2D, MaxPooling2D, ZeroPadding2D
+from keras.layers import LSTM, GlobalAveragePooling2D, GRU, Bidirectional, UpSampling2D, Input
+from keras.optimizers import SGD
+import keras.backend as K
+from keras.callbacks import Callback
+from keras.engine.topology import Layer
+from keras import optimizers, metrics
+
 
 from labelling import collectinglabel
 from reordering import readinput
@@ -47,14 +50,51 @@ from evaluationmatrix import fpr
 
 
 
-class GlimpseNet(object):
-	def __init__(self, images, loc):
-		self.original_image_size = images.shape[0]
-		self.glimpse_window_size = 16
-		self.loc = loc
+def image_foveate(image, scale, no_patches):
 
-	def glimpse_sensor(self):
-		image_subset = self.images
-		
-	def __call__(self):
-		
+	image_centre = image.shape[0]
+	for i in (range(no_patches)):
+		current_scale = scale * (i + 1)
+		from_x, to_x = int(image_centre - current_scale), int(image_centre + current_scale)
+		from_y, to_y = int(image_centre - current_scale), int(image_centre + current_scale)
+		cropped_image = image[from_x:to_x, from_y:to_y]
+		print("from_x = %i, to_x = %i" % (from_x, to_x))
+		print("from_y = %i, to_y = %i" % (from_y, to_y))
+
+		foveated_image = image
+		foveated_image = cv2.blur(foveated_image, (20, 20))
+		foveated_image[from_x:to_x, from_y:to_y] = cropped_image
+		# cv2.imshow("cropped", foveated_image)
+		# cv2.waitKey(0)	
+
+		return foveated_image
+
+def Glimpse_Network(size):
+
+	glimpse_model = Sequential()
+	glimpse_model.add(Flatten(input_shape=(size, size, 3)))
+	glimpse_model.add(Dense(4096))
+
+	return glimpse_model
+	# glimpse_net = Model(inputs=foveated_image, outputs=glipmse_encoder)
+	
+
+
+
+imagename = 'asd.png'
+image = cv2.imread(imagename)
+image = cv2.resize(image, (224,224))
+scale = 28
+no_patches = int(224/scale/2) 
+foveated_image = image_foveate(image, scale, no_patches)
+foveated_image = foveated_image.reshape(1, 224, 224, 3)
+# Glimpse_Network(foveated_image, 224)
+adam = optimizers.Adam(lr=0.00001, decay=0.000001)
+gn = Glimpse_Network(size=224)
+gn.compile(loss='categorical_crossentropy', optimizer=adam, metrics=[metrics.categorical_accuracy])
+# gn.fit(foveated_image, '1')
+glimpse_net = Model(inputs=gn.input, outputs=gn.output)
+glimpse_net.predict(foveated_image)
+
+
+

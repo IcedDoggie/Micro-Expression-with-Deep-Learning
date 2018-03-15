@@ -8,6 +8,7 @@ import xlrd
 import cv2
 import pandas as pd
 import matplotlib.pyplot as plt
+import gc
 
 from sklearn.svm import SVC
 from collections import Counter
@@ -256,7 +257,7 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, list_dB, spatia
 			_, _, _, _, _, Train_X_Strain, Train_Y_Strain, Test_X_Strain, Test_Y_Strain = restructure_data(sub, SubperdB_strain, labelperSub, subjects, n_exp, r, w, timesteps_TIM, 1)
 			
 			# verify
-			# sanity_check_image(Test_X_Strain, 1)
+			# sanity_check_image(Test_X_Strain, 1, spatial_size)
 
 			# Concatenate Train X & Train_X_Strain
 			X = np.concatenate((X, Train_X_Strain), axis=1)
@@ -305,19 +306,20 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, list_dB, spatia
 				vgg_model.fit(X, y, batch_size=batch_size, epochs=spatial_epochs, shuffle=True, callbacks=[tbCallBack2])
 			
 			elif channel_flag == 3 or channel_flag == 4:
+				vgg_model.fit(X, y, batch_size=batch_size, epochs=spatial_epochs, shuffle=True, callbacks=[history, stopping])				
 				vgg_model_strain.fit(Train_X_Strain, y, batch_size=batch_size, epochs=spatial_epochs, shuffle=True, callbacks=[stopping])
-				model_strain = record_weights(vgg_model_strain, spatial_weights_name_strain, sub)
+				model_strain = record_weights(vgg_model_strain, spatial_weights_name_strain, sub, flag)
 				output_strain = model_strain.predict(Train_X_Strain, batch_size=batch_size)
 				if channel_flag == 4:
 					vgg_model_gray.fit(Train_X_Gray, y, batch_size=batch_size, epochs=spatial_epochs, shuffle=True, callbacks=[stopping])
-					model_gray = record_weights(vgg_model_gray, spatial_weights_name_gray, sub)
+					model_gray = record_weights(vgg_model_gray, spatial_weights_name_gray, sub, flag)
 					output_gray = model_gray.predict(Train_X_Gray, batch_size=batch_size)
 
 			else:			
 				vgg_model.fit(X, y, batch_size=batch_size, epochs=spatial_epochs, shuffle=True, callbacks=[history, stopping])
 
 			# record f1 and loss
-			record_loss_accuracy(db_images, train_id, dB, history)		
+			record_loss_accuracy(db_home, train_id, dB, history)		
 
 			# save vgg weights
 			model = record_weights(vgg_model, spatial_weights_name, sub, flag)
@@ -340,7 +342,7 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, list_dB, spatia
 				temporal_model.fit(features, Train_Y, batch_size=batch_size, epochs=temporal_epochs)	
 
 			# save temporal weights
-			temporal_model = record_weights(temporal_model, temporal_weights_name, subject, flag)
+			temporal_model = record_weights(temporal_model, temporal_weights_name, sub, 't') # let the flag be t
 
 			# Testing
 			output = model.predict(test_X, batch_size = batch_size)
@@ -394,3 +396,24 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, list_dB, spatia
 		print("war: " + str(war))
 		print("uar: " + str(uar))	
 		###############################################################################
+
+		################## free memory ####################
+
+		del vgg_model
+		del temporal_model
+		del model
+		del Train_X, Test_X, X, y
+		
+		if channel_flag == 1:
+			del Train_X_Strain, Test_X_Strain, Train_Y_Strain, Train_Y_Strain
+		elif channel_flag == 2:
+			del Train_X_Strain, Test_X_Strain, Train_Y_Strain, Train_Y_Strain, Train_X_Gray, Test_X_Gray, Train_Y_Gray, Test_Y_Gray
+		elif channel_flag == 3:
+			del vgg_model_strain, model_strain	
+			del Train_X_Strain, Test_X_Strain, Train_Y_Strain, Train_Y_Strain
+		elif channel_flag == 4:
+			del Train_X_Strain, Test_X_Strain, Train_Y_Strain, Train_Y_Strain, Train_X_Gray, Test_X_Gray, Train_Y_Gray, Test_Y_Gray
+			del vgg_model_gray, vgg_model_strain, model_gray, model_strain
+		
+		gc.collect()
+		###################################################
