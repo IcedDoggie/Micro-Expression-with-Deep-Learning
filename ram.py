@@ -75,7 +75,11 @@ def Glimpse_Network(size):
 	glimpse_model.add(Flatten(input_shape=(size, size, 3)))
 	glimpse_model.add(Dense(4096))
 
-	return glimpse_model
+	glimpse_model2 = Sequential()
+	glimpse_model2.add(Flatten(input_shape=(size, size, 3)))
+	glimpse_model2.add(Dense(4096))	
+
+	return glimpse_model, glimpse_model2
 	# glimpse_net = Model(inputs=foveated_image, outputs=glipmse_encoder)
 	
 
@@ -90,11 +94,15 @@ foveated_image = image_foveate(image, scale, no_patches)
 foveated_image = foveated_image.reshape(1, 224, 224, 3)
 # Glimpse_Network(foveated_image, 224)
 adam = optimizers.Adam(lr=0.00001, decay=0.000001)
-gn = Glimpse_Network(size=224)
+gn, gn2 = Glimpse_Network(size=224)
 gn.compile(loss='categorical_crossentropy', optimizer=adam, metrics=[metrics.categorical_accuracy])
-# gn.fit(foveated_image, '1')
-glimpse_net = Model(inputs=gn.input, outputs=gn.output)
-glimpse_net.predict(foveated_image)
+# gn2.compile(loss='categorical_crossentropy', optimizer=adam, metrics=[metrics.categorical_accuracy])
+gn.fit(foveated_image, '1')
+# glimpse_net = Model(inputs=gn.input, outputs=gn.output)
+# glimpse_net.predict(foveated_image)
+
+# glimpse_net = Model(inputs=gn2.input, outputs=gn2.output)
+# glimpse_net.predict(foveated_image)
 
 
 
