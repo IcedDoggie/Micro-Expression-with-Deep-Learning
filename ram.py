@@ -50,59 +50,100 @@ from evaluationmatrix import fpr
 
 
 
-def image_foveate(image, scale, no_patches):
+def create_glimpse(image, scale, no_patches, lt):
 
-	image_centre = image.shape[0]
+	lt_x = lt[0][0]
+	lt_y = lt[0][1]
+	bound_x = image.shape[0]
+	bound_y = image.shape[1]
+	glimpse_seq = np.empty([0])
+
 	for i in (range(no_patches)):
 		current_scale = scale * (i + 1)
-		from_x, to_x = int(image_centre - current_scale), int(image_centre + current_scale)
-		from_y, to_y = int(image_centre - current_scale), int(image_centre + current_scale)
+
+
+		from_x, to_x = int(lt_x - current_scale), int(lt_x + current_scale)
+		from_y, to_y = int(lt_y - current_scale), int(lt_y + current_scale)
+		
+		# check boundary
+		if from_x < 0:
+			from_x = 0
+		if from_y < 0:
+			from_y = 0
+		if to_x > bound_x:
+			to_x = bound_x
+		if to_y > bound_y:
+			to_y = bound_y
+		# print("from_x: %i, to_x: %i, from_y: %i, to_y: %i" % (from_x, to_x, from_y, to_y))
+
 		cropped_image = image[from_x:to_x, from_y:to_y]
-		print("from_x = %i, to_x = %i" % (from_x, to_x))
-		print("from_y = %i, to_y = %i" % (from_y, to_y))
 
-		foveated_image = image
-		foveated_image = cv2.blur(foveated_image, (20, 20))
-		foveated_image[from_x:to_x, from_y:to_y] = cropped_image
-		# cv2.imshow("cropped", foveated_image)
+		glimpse = cropped_image
+		glimpse = cv2.resize(glimpse, (scale, scale))
+		if i == 0:
+			glimpse_seq = glimpse
+		else:
+			glimpse_seq = np.concatenate((glimpse_seq, glimpse), axis=2)
+		# cv2.imshow("cropped", glimpse)
 		# cv2.waitKey(0)	
+	glimpse_seq = glimpse_seq.reshape((1, scale, scale, no_patches * 3))
+	print(glimpse_seq.shape)
+	return glimpse_seq
 
-		return foveated_image
+def Glimpse_Network(glimpse_seq, lt_previous, size):
 
-def Glimpse_Network(size):
+	# glimpse_model = Sequential()
+	# glimpse_model.add(Flatten(input_shape=(size, size, 3)))
+	# glimpse_model.add(Dense(4096, activation = 'relu'))
 
-	glimpse_model = Sequential()
-	glimpse_model.add(Flatten(input_shape=(size, size, 3)))
-	glimpse_model.add(Dense(4096))
+	########## theta g^0, glimpse encoding ###########	
+	adam = optimizers.Adam(lr=0.00001, decay=0.000001)
+	glimpse_input = Input(shape=(size, size, 12))
+	glimpse_flatten = Flatten()(glimpse_input)
+	glimpse_fc = Dense(112, activation = 'relu')(glimpse_flatten)
 
-	glimpse_model2 = Sequential()
-	glimpse_model2.add(Flatten(input_shape=(size, size, 3)))
-	glimpse_model2.add(Dense(4096))	
+	glimpse_model = Model(inputs = glimpse_input, outputs = glimpse_fc)
+	glimpse_model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=[metrics.categorical_accuracy])
 
-	return glimpse_model, glimpse_model2
-	# glimpse_net = Model(inputs=foveated_image, outputs=glipmse_encoder)
+
+	########## theta g^1, location encoding ###########
+	location_input = Input(shape=(2, ))
+	location_fc = Dense(112, activation = 'relu')(location_input)
+
+	location_model = Model(inputs = location_input, outputs = location_fc)
+	location_model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=[metrics.categorical_accuracy])
+
+
+	# glimpse_model.fit(glimpse_seq, glimpse_seq)
+	item = glimpse_model.predict(glimpse_seq)
+	loc = location_model.predict(lt_previous)
+	# print(loc)
+	return glimpse_model
 	
+# def location_network(ht):
+
+
+
+# def recurrent_network(ht_prev, gt):
+
 
 
 
 imagename = 'asd.png'
 image = cv2.imread(imagename)
 image = cv2.resize(image, (224,224))
-scale = 28
-no_patches = int(224/scale/2) 
-foveated_image = image_foveate(image, scale, no_patches)
-foveated_image = foveated_image.reshape(1, 224, 224, 3)
+scale = 56
+no_patches = int(224/scale) 
+lt = np.array(([120], [50]))
+lt = lt.transpose()
+print(lt.shape)
+glimpse_seq = create_glimpse(image, scale, no_patches, lt)
+Glimpse_Network(glimpse_seq, lt, scale)
+
+
+# foveated_image = foveated_image.reshape(1, 224, 224, 3)
 # Glimpse_Network(foveated_image, 224)
-adam = optimizers.Adam(lr=0.00001, decay=0.000001)
-gn, gn2 = Glimpse_Network(size=224)
-gn.compile(loss='categorical_crossentropy', optimizer=adam, metrics=[metrics.categorical_accuracy])
-# gn2.compile(loss='categorical_crossentropy', optimizer=adam, metrics=[metrics.categorical_accuracy])
-gn.fit(foveated_image, '1')
-# glimpse_net = Model(inputs=gn.input, outputs=gn.output)
-# glimpse_net.predict(foveated_image)
+# adam = optimizers.Adam(lr=0.00001, decay=0.000001)
 
-# glimpse_net = Model(inputs=gn2.input, outputs=gn2.output)
-# glimpse_net.predict(foveated_image)
-
-
-
+# initial_t = [1, 1]
+# Glimpse_Network(foveated_image, initial_t, 224)

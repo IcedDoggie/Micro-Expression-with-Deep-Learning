@@ -561,3 +561,8 @@ def modify_cam(model, classes):
 				cv2.imwrite(db_home+'Classification/Result/ae_train/'+fname, visual_ae)
 
 			output_ae = model.predict(output_ae, batch_size = batch_size)
+
+# blurry
+# foveated_image = image
+# foveated_image = cv2.blur(foveated_image, (20, 20))
+# foveated_image[from_x:to_x, from_y:to_y] = cropped_image
