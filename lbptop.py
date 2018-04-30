@@ -51,21 +51,7 @@ def data_loader_LOSO(data, y_labels, subject, list_subjects):
 
 	############ Conversion to numpy and stacking ###############
 	X = X.reshape(int(len(X)/lbp_dim), lbp_dim)
-	# X = np.transpose(X)
 	test_X = test_X.reshape(int(len(test_X)/lbp_dim), lbp_dim)
-	# y = y.reshape(int(len(y)/class_dim), class_dim)
-	# test_y = test_y.reshape(int(len(test_y)/class_dim), class_dim)
-
-	# X=np.vstack(X)
-	# y=np.hstack(y)
-	# print(test_X.shape)
-	# print(test_y)
-	# y = np_utils.to_categorical(y, 4)
-	#############################################################
-	# print ("Train_X_shape: " + str(np.shape(X)))
-	# print ("Train_Y_shape: " + str(np.shape(y)))
-	# print ("Test_X_shape: " + str(np.shape(test_X)))	
-	# print ("Test_Y_shape: " + str(np.shape(test_y)))
 
 	return X, y, test_X, test_y
 
@@ -80,17 +66,8 @@ def standard_data_loader(SubjectPerDatabase, y_labels, subjects, classes):
 		Train_X = np.append(Train_X, data[subject])
 		Train_Y = np.append(Train_Y, y_labels[subject])
 		Test_Y_gt = np.append(Test_Y_gt, y_labels[subject])
-	# print(Train_Y)
-	Train_X = Train_X.reshape(int(len(Train_X)/lbp_dim), lbp_dim)
 
-	# print(Test_Y_gt)
-	############ Conversion to numpy and stacking ###############
-	# Train_X=np.vstack(Train_X)
-	# Train_Y=np.hstack(Train_Y)
-	# Train_Y=np_utils.to_categorical(Train_Y, classes)
-	#############################################################
-	# print ("Train_X_shape: " + str(np.shape(Train_X)))
-	# print ("Train_Y_shape: " + str(np.shape(Train_Y)))
+	Train_X = Train_X.reshape(int(len(Train_X)/lbp_dim), lbp_dim)
 
 
 	return Train_X, Train_Y, Test_Y_gt
@@ -167,20 +144,88 @@ def load_labels_and_LBP_values(file_casme, file_samm, lbp_path, flag):
 
 	return list_data, y_labels
 
+
+def load_labels_and_LBP_values_emotion(file_casme, lbp_path, flag):
+
+
+	table_casme = pd.read_excel(file_casme, converters={'Subject': lambda x: str(x)})
+	table_casme = table_casme[['Subject', 'Filename', 'Estimated Emotion']]
+	table_casme['Subject'] = 'sub' + table_casme['Subject'].astype(str)
+	table_casme = table_casme.as_matrix()
+	print(table_casme)
+	table = table_casme
+
+	reference_table = np.empty([0])
+	help_y = np.empty([0])
+	help_x = np.empty([0])
+	y_labels = []
+	list_data = []
+	current_sub = str(table[0, 0]) # initial subject
+	IgnoredSamples = ['sub09_EP13_02','sub09_EP02_02f','sub10_EP13_01','sub17_EP15_01',
+						'sub17_EP15_03','sub19_EP19_04', 'sub19_EP06_02f', 'sub24_EP10_03','sub24_EP07_01',
+						'sub24_EP07_04f','sub24_EP02_07','sub26_EP15_01' ]
+
+	for item in range(len(table)):
+		pass_flag = 0
+
+		item_name = lbp_path + str(table[item, 0]) + '_' + table[item, 1] + '.txt'
+		
+		for stuff in IgnoredSamples:
+			if stuff in item_name:
+				pass_flag = 1
+				print(item_name)
+
+		if pass_flag == 0:
+			data = np.loadtxt(item_name)
+			test_data = sum(data)
+
+			if table[item, 2] == 'happiness':
+				label = 0
+			if table[item, 2] == 'disgust':
+				label = 1
+			if table[item, 2] == 'repression':
+				label = 2		
+			if table[item, 2] == 'surprise':
+				label = 3								
+			if table[item, 2] == 'others':
+				label = 4
+
+			help_y = np.append(help_y, label)
+			help_x = np.append(help_x, data)
+
+
+			# print(help_y)
+			if current_sub != str(table[item, 0]) or (item + 1)==len(table):
+				# print(current_sub)
+				y_labels += [help_y]
+				list_data += [help_x]
+				current_sub = str(table[item, 0])
+				help_y = np.empty([0])
+				help_x = np.empty([0])		
+
+	# print(len(list_data))
+	# print(len(y_labels))
+	# print(sum(len(y_labels[])))
+
+
+	return list_data, y_labels
+
 # some tunable parameters
 subjects = 26 # 46 for samm-casme # 26 for casme
-samples = 185 # 253 for samm-casme # 185 casme # 68 samm 
-casme_path = "/media/ice/OS/Datasets/SAMM_CASME_Optical/CASME2-ObjectiveClasses.xlsx" 
+samples = 247 # 253 for samm-casme # 185 casme # 68 samm 
+# casme_path = "/media/ice/OS/Datasets/SAMM_CASME_Optical/CASME2-ObjectiveClasses.xlsx" 
 samm_path = "/media/ice/OS/Datasets/SAMM_CASME_Optical/SAMM_Micro_FACS_Codes_v2.xlsx"
-lbp_path = '/home/ice/Documents/Micro-Expression/LBP_features/'
+casme_path = "/media/ice/OS/Datasets/CASME2_Magnified/CASME2_label_Ver_2.xls"
+lbp_path = '/home/ice/Documents/Micro-Expression/LBP_Magnified_denoised/'
 image_path = '/media/ice/OS/Datasets/CASME2_Optical/CASME2_Optical/'
 path = '/home/ice/Documents/Micro-Expression/'
 n_exp = 5
-flag = 'hde_test'
+flag = 'cde'
 flag2 = 'casme_only'
 
 # load labels and LBP values
-data, y_labels = load_labels_and_LBP_values(casme_path, samm_path, lbp_path, flag2)	
+# data, y_labels = load_labels_and_LBP_values(casme_path, samm_path, lbp_path, flag2)	
+data, y_labels = load_labels_and_LBP_values_emotion(casme_path, lbp_path, flag)	
 
 # print(len(data))
 
@@ -239,6 +284,8 @@ if flag == 'cde':
 	uar = unweighted_average_recall(tot_mat, n_exp)
 	print("war: " + str(war))
 	print("uar: " + str(uar))			
+
+
 
 
 elif flag == 'hde_train':
