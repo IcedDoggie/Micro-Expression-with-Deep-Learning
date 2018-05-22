@@ -111,16 +111,25 @@ for eg:
 
 # Results
 **Single DB**
+
 F1          : 0.4999726178
+
 Accuracy/WAR: 0.5243902439
+
 UAR         : 0.4395928516
 
 **CDE**
+
 F1          : 0.4107312702
+
 Accuracy/WAR: 0.57
+
 UAR         : 0.39
 
 **HDE**
+
 F1          : 0.3411487289
+
 Accuracy/WAR: 0.4345389507
+
 UAR         : 0.3521973582
