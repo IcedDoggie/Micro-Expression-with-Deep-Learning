@@ -133,3 +133,6 @@ F1          : 0.3411487289
 Accuracy/WAR: 0.4345389507
 
 UAR         : 0.3521973582
+
+**Paper**
+https://arxiv.org/abs/1805.08417
