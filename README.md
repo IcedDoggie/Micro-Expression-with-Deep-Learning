@@ -135,7 +135,9 @@ Accuracy/WAR: 0.4345389507
 UAR         : 0.3521973582
 
 **If you find this work useful, here's the paper and citation**
+
 https://arxiv.org/abs/1805.08417
+
 @article{khor2018enriched,
   title={Enriched Long-term Recurrent Convolutional Network for Facial Micro-Expression Recognition},
   author={Khor, Huai-Qian and See, John and Phan, Raphael CW and Lin, Weiyao},
