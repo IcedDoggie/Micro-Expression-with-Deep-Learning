@@ -47,7 +47,7 @@ def load_db(db_path, list_db, spatial_size, objective_flag):
 
 		r = w = spatial_size
 		subjects=26
-		samples = 246
+		samples = 237
 		n_exp = 5
 
 		#VidPerSubject = get_subfolders_num(db_images, IgnoredSamples_index)
