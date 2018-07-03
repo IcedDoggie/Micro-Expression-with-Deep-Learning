@@ -187,8 +187,8 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, list_dB, spatia
 		data_dim = 8192
 	elif channel_flag == 4:
 		data_dim = 12288
-	else:
-		data_dim = 224*224
+	#else:
+	#	data_dim = 224*224
 
 	########################################################
 
@@ -199,7 +199,8 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, list_dB, spatia
 	########### Training Process ############
 
 	for sub in range(subjects):
-
+		print(".starting subject" + str(sub))
+		gpu_observer()
 
 		spatial_weights_name = root_db_path + 'Weights/'+ str(train_id) + '/vgg_spatial_'+ str(train_id) + '_' + str(dB) + '_'
 		spatial_weights_name_strain = root_db_path + 'Weights/' + str(train_id) + '/vgg_spatial_strain_'+ str(train_id) + '_' + str(dB) + '_' 
@@ -212,34 +213,64 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, list_dB, spatia
 
 
 		############### Reinitialization & weights reset of models ########################
+		# conv weights must be freezed for transfer learning 
+
+		# first initiate temporal model
 		temporal_model = temporal_module(data_dim=n_exp, timesteps_TIM=timesteps_TIM)
 		temporal_model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=[metrics.categorical_accuracy])
 
-		conv_ae = convolutional_autoencoder(spatial_size = spatial_size, classes = n_exp)
-		conv_ae.compile(loss='binary_crossentropy', optimizer=adam)
+		#conv_ae = convolutional_autoencoder(spatial_size = spatial_size, classes = n_exp)
+		#conv_ae.compile(loss='binary_crossentropy', optimizer=adam)
 
 		if channel_flag == 1:
 			vgg_model = VGG_16_4_channels(classes=n_exp, channels=4, spatial_size = spatial_size)
+
+			if finetuning_flag == 1:
+				for layer in vgg_model.layers[:33]:
+					layer.trainable = False
+
 			vgg_model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=[metrics.categorical_accuracy])
 
 		elif channel_flag == 2:
 			vgg_model = VGG_16_4_channels(classes=n_exp, channels=5, spatial_size = spatial_size)
+
+			if finetuning_flag == 1:
+				for layer in vgg_model.layers[:33]:
+					layer.trainable = False
+
 			vgg_model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=[metrics.categorical_accuracy])
 
 
 		elif channel_flag == 3 or channel_flag == 4:
 			vgg_model = VGG_16(spatial_size = spatial_size, classes=n_exp, channels=3, weights_path='VGG_Face_Deep_16.h5')
-			vgg_model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=[metrics.categorical_accuracy])
-
 			vgg_model_strain = VGG_16(spatial_size = spatial_size, classes=n_exp, channels=3, weights_path='VGG_Face_Deep_16.h5')
+
+			if finetuning_flag == 1:
+				for layer in vgg_model.layers[:33]:
+					layer.trainable = False
+				for layer in vgg_model_strain.layers[:33]:
+					layer.trainable = False
+
+			vgg_model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=[metrics.categorical_accuracy])
 			vgg_model_strain.compile(loss='categorical_crossentropy', optimizer=adam, metrics=[metrics.categorical_accuracy])
+
 
 			if channel_flag == 4:
 				vgg_model_gray = VGG_16(spatial_size = spatial_size, classes=n_exp, channels=3, weights_path='VGG_Face_Deep_16.h5')
+
+				if finetuning_flag == 1:
+					for layer in vgg_model_gray.layers[:33]:
+						layer.trainable = False
+
 				vgg_model_gray.compile(loss='categorical_crossentropy', optimizer=adam, metrics=[metrics.categorical_accuracy])
 
 		else:
 			vgg_model = VGG_16(spatial_size = spatial_size, classes=n_exp, channels=3, weights_path='VGG_Face_Deep_16.h5')
+			
+			if finetuning_flag == 1:
+				for layer in vgg_model.layers[:33]:
+					layer.trainable = False
+
 			vgg_model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=[metrics.categorical_accuracy])
 
 		svm_classifier = SVC(kernel='linear', C=1)
@@ -297,20 +328,11 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, list_dB, spatia
 
 		print("Beginning training & testing.")
 		##################### Training & Testing #########################
-		# conv weights must be freezed for transfer learning 
-		if finetuning_flag == 1:
-			for layer in vgg_model.layers[:33]:
-				layer.trainable = False
-			if channel_flag == 3 or channel_flag == 4:
-				for layer in vgg_model_strain.layers[:33]:
-					layer.trainable = False
-				if channel_flag == 4:
-					for layer in vgg_model_gray.layers[:33]:
-						layer.trainable = False					
+		
 
 		if train_spatial_flag == 1 and train_temporal_flag == 1:
 
-			print("Beginning spacial training.")
+			print("Beginning spatial training.")
 			# Spatial Training
 			if tensorboard_flag == 1:
 				vgg_model.fit(X, y, batch_size=batch_size, epochs=spatial_epochs, shuffle=True, callbacks=[tbCallBack2])
@@ -421,7 +443,7 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, list_dB, spatia
 		war = weighted_average_recall(tot_mat, n_exp, samples)
 		uar = unweighted_average_recall(tot_mat, n_exp)
 		print("war: " + str(war))
-		print("uar: " + str(uar))	
+		print("uar: " + str(uar))
 		###############################################################################
 
 		################## free memory ####################
