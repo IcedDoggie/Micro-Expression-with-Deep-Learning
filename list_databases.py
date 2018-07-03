@@ -10,6 +10,7 @@ import pandas as pd
 from utilities import Read_Input_Images, get_subfolders_num, data_loader_with_LOSO, label_matching, duplicate_channel
 from utilities import record_scores, LossHistory, filter_objective_samples
 from utilities import loading_samm_table, loading_smic_table, loading_casme_table, ignore_casme_samples, ignore_casmergb_samples, loading_casme_objective_table
+from utilities import get_vid_per_subject
 from samm_utilitis import get_subfolders_num_crossdb, loading_samm_labels
 
 
@@ -46,9 +47,11 @@ def load_db(db_path, list_db, spatial_size, objective_flag):
 
 		r = w = spatial_size
 		subjects=26
-		samples = 246
+		samples = 237
 		n_exp = 5
-		VidPerSubject = get_subfolders_num(db_images, IgnoredSamples_index)
+
+		#VidPerSubject = get_subfolders_num(db_images, IgnoredSamples_index)
+		VidPerSubject = get_vid_per_subject(table, ['fear', 'sadness'])
 
 		timesteps_TIM = 9
 		data_dim = r * w
@@ -174,7 +177,7 @@ def restructure_data(subject, subperdb, labelpersub, subjects, n_exp, r, w, time
 
 	# Extend Y labels 10 fold, so that all images have labels
 	Train_Y_spatial = np.repeat(Train_Y, timesteps_TIM, axis=0)
-	Test_Y_spatial = np.repeat(Test_Y, timesteps_TIM, axis=0)		
+	Test_Y_spatial = np.repeat(Test_Y, timesteps_TIM, axis=0)	
 
 
 	X = Train_X_spatial.reshape(Train_X_spatial.shape[0], channel, r, w)
@@ -188,7 +191,7 @@ def restructure_data(subject, subperdb, labelpersub, subjects, n_exp, r, w, time
 
 	print ("Train_X_shape: " + str(np.shape(Train_X)))
 	print ("Train_Y_shape: " + str(np.shape(Train_Y)))
-	print ("Test_X_shape: " + str(np.shape(Test_X)))	
+	print ("Test_X_shape: " + str(np.shape(Test_X)))
 	print ("Test_Y_shape: " + str(np.shape(Test_Y)))	
 	print ("X_shape: " + str(np.shape(X)))
 	print ("y_shape: " + str(np.shape(y)))
