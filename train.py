@@ -201,7 +201,6 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, list_dB, spatia
 	for sub in range(subjects):
 		print(".starting subject" + str(sub))
 		gpu_observer()
-
 		spatial_weights_name = root_db_path + 'Weights/'+ str(train_id) + '/vgg_spatial_'+ str(train_id) + '_' + str(dB) + '_'
 		spatial_weights_name_strain = root_db_path + 'Weights/' + str(train_id) + '/vgg_spatial_strain_'+ str(train_id) + '_' + str(dB) + '_' 
 		spatial_weights_name_gray = root_db_path + 'Weights/' + str(train_id) + '/vgg_spatial_gray_'+ str(train_id) + '_' + str(dB) + '_'
@@ -464,6 +463,5 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, list_dB, spatia
 			del Train_X_Strain, Test_X_Strain, Train_Y_Strain, Train_Y_Strain, Train_X_Gray, Test_X_Gray, Train_Y_Gray, Test_Y_Gray
 			del vgg_model_gray, vgg_model_strain, model_gray, model_strain
 		
-		K.clear_session()
 		gc.collect()
 		###################################################
