@@ -103,6 +103,17 @@ def label_matching(workplace, dB, subjects, VidPerSubject):
 
 	return labelperSub
 
+
+def get_vid_per_subject(table, listOfIgnoredLabels):
+	pdt = pd.DataFrame(data=table[0:,0:],columns=['sub','id','y'])
+	pdt = pdt[~(pdt['y'].isin(listOfIgnoredLabels))]
+
+	out = pdt.groupby('sub').size().tolist()
+	return out
+
+
+
+
 def get_subfolders_num(path, IgnoredSamples_index):
 	files = folders = 0
 	# print(path)
@@ -123,6 +134,8 @@ def get_subfolders_num(path, IgnoredSamples_index):
 	
 	####### Minus out the ignored samples ############
 	# print(folders_array)
+
+
 	for item in IgnoredSamples_index:
 		item = int(item)
 		folders_array[item] -= 1
@@ -162,6 +175,7 @@ def standard_data_loader(SubjectPerDatabase, y_labels, subjects, classes):
 def data_loader_with_LOSO(subject, SubjectPerDatabase, y_labels, subjects, classes):
 	Train_X = []
 	Train_Y = []
+
 
 	Test_X = np.array(SubjectPerDatabase[subject])
 	Test_Y = np_utils.to_categorical(y_labels[subject], classes)
@@ -259,7 +273,7 @@ def loading_samm_labels(root_db_path, dB, objective_flag):
 	# remove class 6, 7
 	if objective_flag:
 		print(objective_flag)
-		label_file = label_file.ix[label_file['Objective Classes'] < 6]	
+		label_file = label_file.ix[label_file['Objective Classes'] < 6]
 
 	subject = label_file[['Subject']]
 	filename = label_file[['Filename']]
