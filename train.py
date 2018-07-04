@@ -52,7 +52,7 @@ from keras import backend as K
 def train(batch_size, spatial_epochs, temporal_epochs, train_id, list_dB, spatial_size, flag, objective_flag, tensorboard):
 	############## Path Preparation ######################
 	root_db_path = "/home/mihag/Documents/ME_data/"
-	tensorboard_path = "/home/mihag/anaconda3/lib/python3.6/site-packages/tensorboard"
+	tensorboard_path = root_db_path + "tensorboard/"
 	if os.path.isdir(root_db_path + 'Weights/'+ str(train_id) ) == False:
 		os.mkdir(root_db_path + 'Weights/'+ str(train_id) )
 
@@ -187,8 +187,8 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, list_dB, spatia
 		data_dim = 8192
 	elif channel_flag == 4:
 		data_dim = 12288
-	#else:
-	#	data_dim = 224*224
+	else:
+		data_dim = 4096
 
 	########################################################
 
@@ -215,9 +215,6 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, list_dB, spatia
 
 		temporal_model = temporal_module(data_dim=data_dim, timesteps_TIM=timesteps_TIM, classes=n_exp)
 		temporal_model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=[metrics.categorical_accuracy])
-
-		#conv_ae = convolutional_autoencoder(spatial_size = spatial_size, classes = n_exp)
-		#conv_ae.compile(loss='binary_crossentropy', optimizer=adam)
 
 		if channel_flag == 1:
 			vgg_model = VGG_16_4_channels(classes=n_exp, channels=4, spatial_size = spatial_size)
@@ -263,14 +260,14 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, list_dB, spatia
 
 		else:
 			vgg_model = VGG_16(spatial_size = spatial_size, classes=n_exp, channels=3, weights_path='VGG_Face_Deep_16.h5')
-			
+
 			if finetuning_flag == 1:
 				for layer in vgg_model.layers[:33]:
 					layer.trainable = False
 
 			vgg_model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=[metrics.categorical_accuracy])
 
-		svm_classifier = SVC(kernel='linear', C=1)
+		#svm_classifier = SVC(kernel='linear', C=1)
 		####################################################################################
 		
 		
@@ -280,7 +277,7 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, list_dB, spatia
 			os.mkdir(cat_path)
 			tbCallBack = keras.callbacks.TensorBoard(log_dir=cat_path, write_graph=True)
 
-			cat_path2 = tensorboard_path + str(sub) + "spat/"
+			cat_path2 = tensorboard_path + str(sub) + "spatial/"
 			os.mkdir(cat_path2)
 			tbCallBack2 = keras.callbacks.TensorBoard(log_dir=cat_path2, write_graph=True)
 		#############################################
@@ -332,7 +329,7 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, list_dB, spatia
 			print("Beginning spatial training.")
 			# Spatial Training
 			if tensorboard_flag == 1:
-				vgg_model.fit(X, y, batch_size=batch_size, epochs=spatial_epochs, shuffle=True, callbacks=[tbCallBack2])
+				vgg_model.fit(X, y, batch_size=batch_size, epochs=spatial_epochs, shuffle=True, callbacks=[history,stopping,tbCallBack2])
 			
 			elif channel_flag == 3 or channel_flag == 4:
 				vgg_model.fit(X, y, batch_size=batch_size, epochs=spatial_epochs, shuffle=True, callbacks=[history, stopping])				
@@ -344,7 +341,7 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, list_dB, spatia
 					model_gray = record_weights(vgg_model_gray, spatial_weights_name_gray, sub, flag)
 					output_gray = model_gray.predict(Train_X_Gray, batch_size=batch_size)
 
-			else:			
+			else:
 				vgg_model.fit(X, y, batch_size=batch_size, epochs=spatial_epochs, shuffle=True, callbacks=[history, stopping])
 
 			print(".record f1 and loss")
@@ -369,13 +366,15 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, list_dB, spatia
 			
 			print("Beginning temporal training.")
 
+
+
 			# Temporal Training
 			if tensorboard_flag == 1:
 				temporal_model.fit(features, Train_Y, batch_size=batch_size, epochs=temporal_epochs, callbacks=[tbCallBack])
 			else:
 				temporal_model.fit(features, Train_Y, batch_size=batch_size, epochs=temporal_epochs)
 
-			print("save temportal weights")
+			print(".save temportal weights")
 			# save temporal weights
 			temporal_model = record_weights(temporal_model, temporal_weights_name, sub, 't') # let the flag be t
 
