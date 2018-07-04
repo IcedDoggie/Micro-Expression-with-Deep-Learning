@@ -9,10 +9,14 @@ image_emotion_casme/
 image_crossdb_te/
 image/
 External-Tools/
+archive/
+LBP_Magnified/
+LBP_Magnified_denoised/
+pynvml/
+scrapper/
 *.png
 *.h5
 *.dat	
 shape_predictor_68_face_landmarks.dat
 core
-.vscode/settings.json
-nohup.out
+nohup*

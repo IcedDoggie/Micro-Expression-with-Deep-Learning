@@ -5,6 +5,8 @@ from test_samm_cross import test_samm_cross
 from train_cae_lstm import train_cae_lstm
 # from test_casme import test_casme
 from train_spatial_only import train_spatial_only
+from train_ram import train_ram
+
 
 def main(args):
 	# print(args[0]['train'])
@@ -22,6 +24,9 @@ def main(args):
 	# 	test_casme(args.batch_size, args.spatial_epochs, args.temporal_epochs, args.train_id, args.dB, args.spatial_size, args.flag, args.objective_flag, args.tensorboard)
 	elif args.train == "./train_spatial_only.py":
 		train_spatial_only(args.batch_size, args.spatial_epochs, args.temporal_epochs, args.train_id, args.dB, args.spatial_size, args.flag, args.objective_flag, args.tensorboard)
+	elif args.train == "./train_ram.py":
+		train_ram(args.batch_size, args.spatial_epochs, args.temporal_epochs, args.train_id, args.dB, args.spatial_size, args.flag, args.objective_flag, args.tensorboard)
+
 
 
 

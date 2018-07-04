@@ -19,7 +19,7 @@ def collectinglabel(Table, sub, videoName, workplace, db, objective_flag):
                 break
     
     # SMIC only case
-    elif "SMIC_" in db:
+    elif "SMIC" in db:
         counter = 0
 
         for var in ((Table[0, :, 0])):
@@ -41,7 +41,7 @@ def collectinglabel(Table, sub, videoName, workplace, db, objective_flag):
             counter += 1
 
     # SAMM only case
-    elif "SAMM_" in db:
+    elif "SAMM" in db:
 
         counter = 0
         if objective_flag == 0:
