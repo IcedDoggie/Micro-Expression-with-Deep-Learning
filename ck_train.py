@@ -136,3 +136,4 @@ def train():
 	
 # train()
 # tim_image_vec = read_image(image_path)
+

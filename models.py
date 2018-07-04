@@ -148,6 +148,7 @@ def temporal_module(data_dim, timesteps_TIM, classes, weights_path=None):
 	model.add(LSTM(3000, return_sequences=False, input_shape=(timesteps_TIM, data_dim)))
 	model.add(Dense(128, activation='relu'))
 	model.add(Dense(classes, activation='sigmoid'))
+
 	if weights_path:
 		model.load_weights(weights_path)
 

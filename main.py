@@ -7,6 +7,7 @@ from train_cae_lstm import train_cae_lstm
 from train_spatial_only import train_spatial_only
 from train_ram import train_ram
 
+
 def main(args):
 	# print(args[0]['train'])
 	print(args.objective_flag)
@@ -25,6 +26,7 @@ def main(args):
 		train_spatial_only(args.batch_size, args.spatial_epochs, args.temporal_epochs, args.train_id, args.dB, args.spatial_size, args.flag, args.objective_flag, args.tensorboard)
 	elif args.train == "./train_ram.py":
 		train_ram(args.batch_size, args.spatial_epochs, args.temporal_epochs, args.train_id, args.dB, args.spatial_size, args.flag, args.objective_flag, args.tensorboard)
+
 
 
 

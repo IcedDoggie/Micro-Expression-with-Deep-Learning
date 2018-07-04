@@ -25,7 +25,7 @@ def face_landmarking(image):
 
 	# get response data as a python object.
 	data = response.json()
-	
+
 	# print out some data info
 	# print(data)
 	# print(len(data['faces']))
