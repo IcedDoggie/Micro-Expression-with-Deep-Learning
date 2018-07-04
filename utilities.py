@@ -493,7 +493,7 @@ def record_loss_accuracy(db_home, train_id, db, history_callback):
 def record_weights(model, weights_name, subject, flag):
 	model.save_weights(weights_name + str(subject) + ".h5")
 
-	if flag == 's' or flag == 'sf':
+	if flag == 's' or flag == 'st':
 		model = Model(inputs=model.input, outputs=model.layers[35].output)
 		plot_model(model, to_file = "spatial_module_FULL_TRAINING.png", show_shapes=True)	
 	else:
