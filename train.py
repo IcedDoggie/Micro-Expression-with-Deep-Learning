@@ -215,7 +215,7 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, list_dB, spatia
 		# conv weights must be freezed for transfer learning 
 
 		# first initiate temporal model
-		temporal_model = temporal_module(data_dim=n_exp, timesteps_TIM=timesteps_TIM)
+		temporal_model = temporal_module(data_dim=data_dim, timesteps_TIM=timesteps_TIM)
 		temporal_model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=[metrics.categorical_accuracy])
 
 		#conv_ae = convolutional_autoencoder(spatial_size = spatial_size, classes = n_exp)
