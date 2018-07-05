@@ -17,6 +17,7 @@ import scipy.io as sio
 import pydot, graphviz
 from PIL import Image
 
+
 from keras.models import Sequential, Model
 from keras.utils import np_utils, plot_model
 from keras import metrics
@@ -43,10 +44,15 @@ from samm_utilitis import get_subfolders_num_crossdb, Read_Input_Images_SAMM_CAS
 from list_databases import load_db, restructure_data
 from models import VGG_16, temporal_module, VGG_16_4_channels, convolutional_autoencoder
 
+from keras import backend as K
+
+
+
+
 def train(batch_size, spatial_epochs, temporal_epochs, train_id, list_dB, spatial_size, flag, objective_flag, tensorboard):
 	############## Path Preparation ######################
-	root_db_path = "/media/ice/OS/Datasets/"
-	tensorboard_path = "/home/ice/Documents/Micro-Expression/tensorboard/"
+	root_db_path = "/home/mihag/Documents/ME_data/"
+	tensorboard_path = root_db_path + "tensorboard/"
 	if os.path.isdir(root_db_path + 'Weights/'+ str(train_id) ) == False:
 		os.mkdir(root_db_path + 'Weights/'+ str(train_id) )
 
@@ -55,6 +61,7 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, list_dB, spatia
 	############## Variables ###################
 	dB = list_dB[0]
 	r, w, subjects, samples, n_exp, VidPerSubject, timesteps_TIM, data_dim, channel, table, listOfIgnoredSamples, db_home, db_images, cross_db_flag = load_db(root_db_path, list_dB, spatial_size, objective_flag)
+
 
 	# avoid confusion
 	if cross_db_flag == 1:
@@ -119,8 +126,8 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, list_dB, spatia
 
 
 	labelperSub = label_matching(db_home, dB, subjects, VidPerSubject)
-	print("Loaded Images into the tray...")
-	print("Loaded Labels into the tray...")
+	print("Loaded Images into the tray.")
+	print("Loaded Labels into the tray.")
 
 	if channel_flag == 1:
 		aux_db1 = list_dB[1]
@@ -167,6 +174,7 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, list_dB, spatia
 
 
 	########### Model Configurations #######################
+	K.set_image_dim_ordering('th')
 	sgd = optimizers.SGD(lr=0.0001, decay=1e-7, momentum=0.9, nesterov=True)
 	adam = optimizers.Adam(lr=0.00001, decay=0.000001)
 
@@ -187,12 +195,12 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, list_dB, spatia
 
 
 
-
+	print("Beginning training process.")
 	########### Training Process ############
 
 	for sub in range(subjects):
-
-
+		print(".starting subject" + str(sub))
+		gpu_observer()
 		spatial_weights_name = root_db_path + 'Weights/'+ str(train_id) + '/vgg_spatial_'+ str(train_id) + '_' + str(dB) + '_'
 		spatial_weights_name_strain = root_db_path + 'Weights/' + str(train_id) + '/vgg_spatial_strain_'+ str(train_id) + '_' + str(dB) + '_' 
 		spatial_weights_name_gray = root_db_path + 'Weights/' + str(train_id) + '/vgg_spatial_gray_'+ str(train_id) + '_' + str(dB) + '_'
@@ -208,34 +216,58 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, list_dB, spatia
 		temporal_model = temporal_module(data_dim=data_dim, timesteps_TIM=timesteps_TIM, classes=n_exp)
 		temporal_model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=[metrics.categorical_accuracy])
 
-		conv_ae = convolutional_autoencoder(spatial_size = spatial_size, classes = n_exp)
-		conv_ae.compile(loss='binary_crossentropy', optimizer=adam)
-
 		if channel_flag == 1:
 			vgg_model = VGG_16_4_channels(classes=n_exp, channels=4, spatial_size = spatial_size)
+
+			if finetuning_flag == 1:
+				for layer in vgg_model.layers[:33]:
+					layer.trainable = False
+
 			vgg_model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=[metrics.categorical_accuracy])
 
 		elif channel_flag == 2:
 			vgg_model = VGG_16_4_channels(classes=n_exp, channels=5, spatial_size = spatial_size)
+
+			if finetuning_flag == 1:
+				for layer in vgg_model.layers[:33]:
+					layer.trainable = False
+
 			vgg_model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=[metrics.categorical_accuracy])
 
 
 		elif channel_flag == 3 or channel_flag == 4:
 			vgg_model = VGG_16(spatial_size = spatial_size, classes=n_exp, channels=3, weights_path='VGG_Face_Deep_16.h5')
-			vgg_model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=[metrics.categorical_accuracy])
-
 			vgg_model_strain = VGG_16(spatial_size = spatial_size, classes=n_exp, channels=3, weights_path='VGG_Face_Deep_16.h5')
+
+			if finetuning_flag == 1:
+				for layer in vgg_model.layers[:33]:
+					layer.trainable = False
+				for layer in vgg_model_strain.layers[:33]:
+					layer.trainable = False
+
+			vgg_model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=[metrics.categorical_accuracy])
 			vgg_model_strain.compile(loss='categorical_crossentropy', optimizer=adam, metrics=[metrics.categorical_accuracy])
+
 
 			if channel_flag == 4:
 				vgg_model_gray = VGG_16(spatial_size = spatial_size, classes=n_exp, channels=3, weights_path='VGG_Face_Deep_16.h5')
+
+				if finetuning_flag == 1:
+					for layer in vgg_model_gray.layers[:33]:
+						layer.trainable = False
+
 				vgg_model_gray.compile(loss='categorical_crossentropy', optimizer=adam, metrics=[metrics.categorical_accuracy])
 
 		else:
 			vgg_model = VGG_16(spatial_size = spatial_size, classes=n_exp, channels=3, weights_path='VGG_Face_Deep_16.h5')
+
+			if finetuning_flag == 1:
+				for layer in vgg_model.layers[:33]:
+					layer.trainable = False
+
 			vgg_model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=[metrics.categorical_accuracy])
 
-		svm_classifier = SVC(kernel='linear', C=1)
+		#svm_classifier = SVC(kernel='linear', C=1)
 		####################################################################################
 		
 		
@@ -245,7 +277,7 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, list_dB, spatia
 			os.mkdir(cat_path)
 			tbCallBack = keras.callbacks.TensorBoard(log_dir=cat_path, write_graph=True)
 
-			cat_path2 = tensorboard_path + str(sub) + "spat/"
+			cat_path2 = tensorboard_path + str(sub) + "spatial/"
 			os.mkdir(cat_path2)
 			tbCallBack2 = keras.callbacks.TensorBoard(log_dir=cat_path2, write_graph=True)
 		#############################################
@@ -288,23 +320,16 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, list_dB, spatia
 		gpu_observer()
 		########################################################
 
+		print("Beginning training & testing.")
 		##################### Training & Testing #########################
-		# conv weights must be freezed for transfer learning 
-		if finetuning_flag == 1:
-			for layer in vgg_model.layers[:33]:
-				layer.trainable = False
-			if channel_flag == 3 or channel_flag == 4:
-				for layer in vgg_model_strain.layers[:33]:
-					layer.trainable = False
-				if channel_flag == 4:
-					for layer in vgg_model_gray.layers[:33]:
-						layer.trainable = False					
+		
 
 		if train_spatial_flag == 1 and train_temporal_flag == 1:
 
+			print("Beginning spatial training.")
 			# Spatial Training
 			if tensorboard_flag == 1:
-				vgg_model.fit(X, y, batch_size=batch_size, epochs=spatial_epochs, shuffle=True, callbacks=[tbCallBack2])
+				vgg_model.fit(X, y, batch_size=batch_size, epochs=spatial_epochs, shuffle=True, callbacks=[history,stopping,tbCallBack2])
 			
 			elif channel_flag == 3 or channel_flag == 4:
 				vgg_model.fit(X, y, batch_size=batch_size, epochs=spatial_epochs, shuffle=True, callbacks=[history, stopping])				
@@ -316,15 +341,18 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, list_dB, spatia
 					model_gray = record_weights(vgg_model_gray, spatial_weights_name_gray, sub, flag)
 					output_gray = model_gray.predict(Train_X_Gray, batch_size=batch_size)
 
-			else:			
+			else:
 				vgg_model.fit(X, y, batch_size=batch_size, epochs=spatial_epochs, shuffle=True, callbacks=[history, stopping])
 
+			print(".record f1 and loss")
 			# record f1 and loss
 			record_loss_accuracy(db_home, train_id, dB, history)		
 
+			print(".save vgg weights")
 			# save vgg weights
 			model = record_weights(vgg_model, spatial_weights_name, sub, flag)
 
+			print(".spatial encoding")
 			# Spatial Encoding
 			output = model.predict(X, batch_size = batch_size)
 
@@ -336,15 +364,22 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, list_dB, spatia
 
 			features = output.reshape(int(Train_X.shape[0]), timesteps_TIM, output.shape[1])
 			
+			print("Beginning temporal training.")
+
+
+
 			# Temporal Training
 			if tensorboard_flag == 1:
 				temporal_model.fit(features, Train_Y, batch_size=batch_size, epochs=temporal_epochs, callbacks=[tbCallBack])
 			else:
-				temporal_model.fit(features, Train_Y, batch_size=batch_size, epochs=temporal_epochs)	
+				temporal_model.fit(features, Train_Y, batch_size=batch_size, epochs=temporal_epochs)
 
+			print(".save temportal weights")
 			# save temporal weights
 			temporal_model = record_weights(temporal_model, temporal_weights_name, sub, 't') # let the flag be t
 
+			print("Beginning testing.")
+			print(".predicting with spatial model")
 			# Testing
 			output = model.predict(test_X, batch_size = batch_size)
 			if channel_flag == 3 or channel_flag == 4:
@@ -358,14 +393,23 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, list_dB, spatia
 			elif channel_flag == 4:
 				output = np.concatenate((output, output_strain, output_gray), axis=1)
 
+			print(".outputing features")
 			features = output.reshape(Test_X.shape[0], timesteps_TIM, output.shape[1])
 
+			print(".predicting with temporal model")
 			predict = temporal_model.predict_classes(features, batch_size=batch_size)
 		##############################################################
 
 		#################### Confusion Matrix Construction #############
 		print (predict)
-		print (Test_Y_gt)	
+		print (Test_Y_gt.astype(int))
+
+		print(".writing predicts to file")
+		file = open(db_home+'Classification/'+ 'Result/'+dB+'/predicts_' + str(train_id) +  '.txt', 'a')
+		file.write("predicts_sub_" + str(sub) + "," + (",".join(repr(e) for e in predict.astype(list))) + "\n")
+		file.write("actuals_sub_" + str(sub) + "," + (",".join(repr(e) for e in Test_Y_gt.astype(int).astype(list))) + "\n")
+		file.close()
+
 
 		ct = confusion_matrix(Test_Y_gt,predict)
 		# check the order of the CT
@@ -395,7 +439,7 @@ def train(batch_size, spatial_epochs, temporal_epochs, train_id, list_dB, spatia
 		war = weighted_average_recall(tot_mat, n_exp, samples)
 		uar = unweighted_average_recall(tot_mat, n_exp)
 		print("war: " + str(war))
-		print("uar: " + str(uar))	
+		print("uar: " + str(uar))
 		###############################################################################
 
 		################## free memory ####################
