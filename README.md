@@ -88,25 +88,42 @@ python main.py --dB './test_samm_cross' 'SAMM_Optical' --batch_size=1 --spatial_
 
 **file structure as follow**:
 * asterisk indicates that the folder needs to be created manually
+
 /db* (root):
+
   /db*
+  
     /subjects
+    
       /videos
+      
         /video_frames.png
+        
   /Classification*
+  
     /Result*
+    
       /db*
+      
   /CASME2_label_Ver_2.xls , CASME2-ObjectiveClasses.xlsx, SAMM_Micro_FACS_Codes_v2.xlsx
   
 for eg:
 /CASME2_Optical:
+
   /CASME2_Optical
+  
     /sub01...sub26
+    
       /EP...
+      
         /1...9.png
+  
   /Classification
+  
     /Result
+    
       /CASME2_Optical
+      
   /CASME2_label_Ver_2.xls , CASME2-ObjectiveClasses.xlsx, SAMM_Micro_FACS_Codes_v2.xlsx
 
 # Results
