@@ -14,6 +14,17 @@ CuDNN 5110. (Optional but recommended for deep learning)
 (CASMEII with TIM applied are removed due to licensing, hence you need to apply the TIM and cropping yourself, the link below is access request for the database.)
 http://fu.psych.ac.cn/CASME/casme2-en.php
 
+TIM-related:
+TIM code can be downloaded below,
+http://www.cse.oulu.fi/wsgi/CMV/Downloads?action=AttachFile&do=view&target=TIM_Lipreading_CVPR2011.zip
+or
+http://www.cse.oulu.fi/wsgi/CMV/Downloads
+Note: Parameters are default except from TIM size
+
+Optical Flow Related:
+I added some script to extract optical flow features (in External_Tools/tvl1flow_3/), original repo are from below:
+https://github.com/Paul-Darius/ipol-matlab/tree/master/tvl1flow_3/Matlab
+
 Since LSTM is used, all the numbers of files have to be the same length. Currently the code does not work on CASMEII Raw. SMIC not tested.
 
 Shape predictor for Facial Landmarks extraction: dlib.net/files/shape_predictor_68_face_landmarks.dat.bz2
