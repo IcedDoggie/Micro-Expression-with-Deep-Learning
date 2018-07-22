@@ -40,7 +40,7 @@ from samm_utilitis import get_subfolders_num_crossdb, Read_Input_Images_SAMM_CAS
 from models import VGG_16, temporal_module, VGG_16_4_channels, convolutional_autoencoder
 
 
-def train_samm_cross(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_size, flag, tensorboard):
+def train_samm_cross(batch_size, spatial_epochs, temporal_epochs, train_id, dB, spatial_size, flag, , objective_flag, tensorboard):
 	############## Path Preparation ######################
 	root_db_path = "/media/ice/OS/Datasets/"
 	workplace = root_db_path + dB + "/"
