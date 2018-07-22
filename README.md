@@ -11,7 +11,8 @@ CuDNN 5110. (Optional but recommended for deep learning)
 
 
 # Download files from this url
-https://www.dropbox.com/sh/vccpos21320la6j/AABqP7tpLMbYnpURt7C-PsyEa?dl=0
+(CASMEII with TIM applied are removed due to licensing, hence you need to apply the TIM and cropping yourself, the link below is access request for the database.)
+http://fu.psych.ac.cn/CASME/casme2-en.php
 
 Since LSTM is used, all the numbers of files have to be the same length. Currently the code does not work on CASMEII Raw. SMIC not tested.
 
