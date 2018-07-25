@@ -4,8 +4,8 @@ import base64
 import cv2
 
 def face_landmarking(image):
-	key = "6iJfwlLNpz_Yn8OU-knyRytWT8ic_5wB"   
-	secret = "dPEUSxH_WfwBTlh5sXRD-e9mj_ltJoLj"
+	key = ""   
+	secret = ""
 	http_url ="https://api-us.faceplusplus.com/facepp/v3/detect"
 
 	#if using image from URL
