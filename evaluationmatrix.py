@@ -30,8 +30,7 @@ def fpr(matrix,n_exp):
             # print(rec)
 
     precision = prec / (n_exp)
-    recall = rec /(n_exp
-)    # print(precision)
+    recall = rec /(n_exp)    # print(precision)
     # print(recall)
     f1 = 2 * precision * recall / (precision + recall)
 
