@@ -1,3 +1,6 @@
+# New work available @
+https://github.com/IcedDoggie/DSSN-MER
+
 # Micro-Expression-with-Deep-Learning
 Experimentation of deep learning on the subjects of micro-expression spotting and recognition. 
 
