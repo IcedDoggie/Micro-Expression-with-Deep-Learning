@@ -1,6 +1,9 @@
 # New work available @
 https://github.com/IcedDoggie/DSSN-MER
 
+# Code Updates and some notes:
+Very sorry for the late reply to most of the messages due to industrial work commitments and rushing deadlines. Apparently os.m was missing and I found it in my local code base. added in External Tools/ tvl1flow /. hope it helps and thank you. Also, hope that it benefits your research works :)
+
 # Micro-Expression-with-Deep-Learning
 Experimentation of deep learning on the subjects of micro-expression spotting and recognition. 
 
