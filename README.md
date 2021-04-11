@@ -32,9 +32,12 @@ https://github.com/Paul-Darius/ipol-matlab/tree/master/tvl1flow_3/Matlab
 Since LSTM is used, all the numbers of files have to be the same length. Currently the code does not work on CASMEII Raw. SMIC not tested.
 
 Shape predictor for Facial Landmarks extraction: dlib.net/files/shape_predictor_68_face_landmarks.dat.bz2
+
 vgg-16 model pretrained on LFW dataset: https://drive.google.com/file/d/1F99D1U9rhaDHp4Re_ky_NjbdT7vmz0mr/view?usp=sharing ( Not available Anymore, but if anyone found an equivalent one, please do not hesitate to reach me out, thank you and sorry for the troubles.)
 Found one, try this https://github.com/rcmalli/keras-vggface ( if it does not work, let me know via email, thanks )
+
 CASME2_Optical: https://drive.google.com/open?id=1fq_eHCLiUT9hP0npq6vkMYiO2Ka-39Mf
+
 CASME2_STRAIN: https://drive.google.com/open?id=1-l_CtP9awfMV6pXSrBIPRiIujQLjCv9H
 
 # Running from scratch
