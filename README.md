@@ -22,9 +22,7 @@ http://fu.psych.ac.cn/CASME/casme2-en.php
 
 TIM-related:
 TIM code can be downloaded below,
-http://www.cse.oulu.fi/wsgi/CMV/Downloads?action=AttachFile&do=view&target=TIM_Lipreading_CVPR2011.zip
-or
-http://www.cse.oulu.fi/wsgi/CMV/Downloads
+https://www.oulu.fi/cmvs/node/33019
 Note: Parameters are default except from TIM size
 
 Optical Flow Related:
@@ -34,7 +32,7 @@ https://github.com/Paul-Darius/ipol-matlab/tree/master/tvl1flow_3/Matlab
 Since LSTM is used, all the numbers of files have to be the same length. Currently the code does not work on CASMEII Raw. SMIC not tested.
 
 Shape predictor for Facial Landmarks extraction: dlib.net/files/shape_predictor_68_face_landmarks.dat.bz2
-vgg-16 model pretrained on LFW dataset: https://drive.google.com/file/d/1F99D1U9rhaDHp4Re_ky_NjbdT7vmz0mr/view?usp=sharing
+vgg-16 model pretrained on LFW dataset: https://drive.google.com/file/d/1F99D1U9rhaDHp4Re_ky_NjbdT7vmz0mr/view?usp=sharing ( Not available Anymore, but if anyone found an equivalent one, please do not hesitate to reach me out, thank you and sorry for the troubles.)
 CASME2_Optical: https://drive.google.com/open?id=1fq_eHCLiUT9hP0npq6vkMYiO2Ka-39Mf
 CASME2_STRAIN: https://drive.google.com/open?id=1-l_CtP9awfMV6pXSrBIPRiIujQLjCv9H
 
